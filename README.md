@@ -1,4 +1,4 @@
-# Spotify → YouTube Downloader 
+# Spotify Playlist → YouTube URL
 
 Script que extrae **todas** las canciones de cualquier playlist pública de Spotify, copia el enlace al portapapeles y guarda todos los enlaces en un archivo de texto (`.txt`).
 
