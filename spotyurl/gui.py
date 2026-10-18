@@ -457,7 +457,7 @@ class DialogoAjustes(QDialog):
 FILTROS_ESTADO = [
     ("Todas", None),
     ("Encontradas", {Status.OK, Status.MANUAL}),
-    ("Dudosas", {Status.DOUBTFUL}),
+    ("Dudoso", {Status.DOUBTFUL}),
     ("Sin match", {Status.FAILED}),
     ("Pendientes", {Status.PENDING, Status.SEARCHING}),
 ]
