@@ -7,6 +7,7 @@ Todo el trabajo pesado (Playwright + yt-dlp) corre en un único QThread que
 habla con la UI mediante señales; la UI nunca toca Playwright.
 """
 
+
 import dataclasses
 import re
 import sys
@@ -457,7 +458,7 @@ class DialogoAjustes(QDialog):
 FILTROS_ESTADO = [
     ("Todas", None),
     ("Encontradas", {Status.OK, Status.MANUAL}),
-    ("Dudosas", {Status.DOUBTFUL}),
+    ("Dudoso", {Status.DOUBTFUL}),
     ("Sin match", {Status.FAILED}),
     ("Pendientes", {Status.PENDING, Status.SEARCHING}),
 ]

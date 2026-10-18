@@ -6,6 +6,7 @@ La extracción usa Playwright sync: debe ejecutarse en un hilo sin event loop
 de asyncio (el hilo principal de la CLI o un QThread de la UI).
 """
 
+
 import re
 import threading
 from dataclasses import dataclass

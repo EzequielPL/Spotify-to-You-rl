@@ -8,6 +8,7 @@ Punto de entrada clásico (CLI). La lógica vive en el paquete spotyurl/.
     python spotify_to_yourl.py --help
 
 Para la interfaz gráfica:  python -m spotyurl.gui
+
 """
 
 import sys

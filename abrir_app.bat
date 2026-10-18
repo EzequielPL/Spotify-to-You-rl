@@ -1,3 +1,5 @@
+# coding: utf-8
+
 @echo off
 rem Abre la interfaz grafica usando el entorno virtual del proyecto
 cd /d "%~dp0"

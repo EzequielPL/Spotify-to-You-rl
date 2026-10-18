@@ -7,6 +7,7 @@ Aplicación de escritorio (y CLI) que extrae **todas** las canciones de una play
 
 ---
 
+
 ## ¿Cómo funciona?
 
 ```

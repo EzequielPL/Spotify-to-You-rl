@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .models import Track, fmt_duration
 
+
 FORMATOS = {
     "txt": "Enlaces (*.txt)",
     "csv": "Hoja de cálculo (*.csv)",
