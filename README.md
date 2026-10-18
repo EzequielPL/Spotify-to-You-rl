@@ -1,142 +1,113 @@
-# Spotify Playlist → YouTube URL
+# Spotify → YouTube URL
 
-Script que extrae **todas** las canciones de cualquier playlist pública de Spotify, copia el enlace al portapapeles y guarda todos los enlaces en un archivo de texto (`.txt`).
+Aplicación de escritorio (y CLI) que extrae **todas** las canciones de una playlist o álbum público de Spotify, busca cada una en YouTube y te da los enlaces: en una tabla revisable, copiados uno a uno al portapapeles (ideal para MediaHuman) y exportables a `.txt`, `.csv` o `.m3u`.
 
-> No requiere API key de Spotify ni de YouTube.  
-> Usa **Playwright** para hacer scroll dinámico y capturar los datos en playlists de cualquier tamaño.
+> No requiere API key de Spotify ni de YouTube.
+> Usa **Playwright** para recorrer la playlist (cualquier tamaño) y **yt-dlp** para buscar en YouTube.
 
 ---
 
 ## ¿Cómo funciona?
 
 ```
-Playlist pública de Spotify
-        │
-        ▼
-  Playwright abre el embed
-  y hace scroll automático
-  hasta el final de la lista
-        │
-        ▼
-  Extrae título + artista
-  de cada canción
-        │
-        ▼
-  Búsqueda en YouTube
-  via yt-dlp
-        │
-        ├──▶ Copia enlace al clipboard  ──▶  MediaHuman lo detecta
-        │
-        └──▶ Guarda youtube_links_FECHA.txt
+Playlist / álbum de Spotify   ─┐
+Lista de texto "Artista - Título" ─┤
+                                 ▼
+        Playwright abre open.spotify.com y hace scroll
+        capturando título, artistas, álbum y duración
+                                 │
+                                 ▼
+        yt-dlp pide varios candidatos por canción y elige
+        el mejor (duración, canal oficial, sin covers/live…)
+                                 │
+         ┌───────────────┬───────┴─────────┬──────────────────┐
+         ▼               ▼                 ▼                  ▼
+   Tabla revisable   Portapapeles     youtube_links_FECHA.txt   Exportar .csv / .m3u
+   (editar, reintentar) (MediaHuman)
 ```
 
 ---
 
-## Requisitos
+## Instalación
 
-- Python **3.10** o superior
-
-### Instalar dependencias
+Requiere Python **3.10+** (probado con 3.14 en Windows).
 
 ```bash
-pip install yt-dlp pyperclip playwright
+pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
-> **Linux:** Necesitas `xclip` o `xsel` para el clipboard:
-> ```bash
-> sudo apt install xclip
-> ```
-> **Windows / macOS:** No se necesita configuración extra.
+> **Linux:** para el portapapeles de la CLI necesitas `xclip` o `xsel` (`sudo apt install xclip`).
 
 ---
 
-## Uso
+## Interfaz gráfica
 
-### Modo interactivo
 ```bash
-python spotify_to_yourl.py
+python -m spotyurl.gui
 ```
 
-### Pasando la URL como argumento
+En Windows también puedes hacer doble clic en **`abrir_app.bat`** (usa el entorno virtual `Spoty_to_you-rl/` si existe).
+
+- **Enlace de Spotify**: pega una playlist o un álbum (`/playlist/…`, `/album/…`, `/intl-es/…`, `spotify:playlist:…`). El campo te indica si el enlace es válido.
+- **Lista de texto**: pega canciones con formato `Artista - Título`, una por línea. Sirve para playlists privadas o cuando Spotify cambia su web.
+- **Tabla**: las canciones aparecen en vivo mientras se extraen y cambian de estado:
+  `pendiente → buscando → encontrada / dudosa / sin match / manual`.
+  - Doble clic en el enlace para **pegar otro** a mano. Doble clic en el resto de la fila para abrir el vídeo.
+  - Clic derecho: abrir, copiar, buscar a mano en YouTube, reintentar o quitar la fila.
+  - Filtra por texto o por estado. Usa *Dudosas* para revisar las coincidencias inseguras.
+- **Reintentar fallidas**, **Copiar todo** y **Exportar** (`.txt`, `.csv`, `.m3u`).
+- **Copiar cada enlace al portapapeles**, con una pausa configurable entre copias, para MediaHuman.
+- **Ajustes**: carpeta de salida, guardado automático del `.txt`, plantilla de búsqueda, número de candidatos, caché de búsquedas, parámetros de scroll y navegador visible (para depurar).
+- Tema claro u oscuro.
+
+La configuración se guarda automáticamente. La caché de búsquedas está en `%APPDATA%\spotyurl\`.
+
+---
+
+## Línea de comandos
+
 ```bash
-python spotify_to_youtube.py 
+python spotify_to_yourl.py "https://open.spotify.com/playlist/ID"
 ```
-Pegar url de playlist valida, eg: "https://open.spotify.com/playlist/0000000000000"
+
+| Opción | Descripción |
+|---|---|
+| `-o, --out CARPETA` | Dónde guardar el `.txt` (por defecto, la carpeta del proyecto) |
+| `--no-clipboard` | No copiar cada enlace al portapapeles |
+| `--pause SEG` | Pausa entre copias al portapapeles (por defecto, 1) |
+| `--show-browser` | Muestra el navegador durante la extracción (depuración) |
+| `--no-cache` | Ignora la caché de búsquedas |
+
+Si interrumpes con `Ctrl+C`, se guardan los enlaces obtenidos hasta ese momento.
 
 ---
 
-## Salida en consola
+## Uso con MediaHuman YouTube Downloader
 
-```
-Abriendo Spotify embed con Playwright…
+1. Abre MediaHuman y activa **«Detectar enlaces del portapapeles»**.
+2. Deja activada la opción **Copiar cada enlace al portapapeles** y pulsa *Convertir*.
+3. Cada enlace encontrado entra en la cola de descarga.
 
-Haciendo scroll para cargar todas las canciones…
-    Vuelta   1 │ Total acumulado:  125 │ Nuevas: 25
-    Vuelta   2 │ Total acumulado:  150 │ Nuevas: 25
-    Vuelta   3 │ Total acumulado:  173 │ Nuevas: 23
-    Vuelta   4 │ Total acumulado:  173 │ Nuevas:  0
-    Vuelta   5 │ Total acumulado:  173 │ Nuevas:  0
-    ...
-
-173 canciones encontradas.
-
-[   1/173]  Bruno Mars - Lo Arriesgo Todo
-            https://www.youtube.com/watch?v=XXXXXX
-            Copiado al clipboard
-            Esperando 1s…
-...
-
-───────────────────────────────────────────────────────
-  Total canciones : 173
-  Encontradas     : 171
-  No encontradas  : 2
-───────────────────────────────────────────────────────
-```
+Si prefieres esperar a que termine todo, arrastra el `.txt` a la ventana de MediaHuman.
 
 ---
 
-## Archivo de salida
-
-Se genera en la **misma carpeta del script**:
+## Estructura
 
 ```
-youtube_links_20240529_143022.txt
+spotyurl/
+  models.py    Track, Status, utilidades de duración
+  spotify.py   extracción con Playwright + parseo de enlaces y listas de texto
+  youtube.py   búsqueda con yt-dlp, puntuación de candidatos, caché
+  export.py    .txt / .csv / .m3u
+  cli.py       línea de comandos
+  gui.py       interfaz PySide6 (hilo de trabajo + tabla)
+spotify_to_yourl.py   punto de entrada de la CLI
+tests/                pytest (sin red)
 ```
 
-Cada línea contiene un enlace de YouTube:
-
-```
-https://www.youtube.com/watch?v=XXXXXX
-https://www.youtube.com/watch?v=YYYYYY
-https://www.youtube.com/watch?v=ZZZZZZ
-```
-
----
-
-## Configuración
-
-Al inicio del script hay variables que puedes ajustar:
-
-| Variable | Por defecto | Descripción |
-|---|---|---|
-| `PAUSA_ENTRE_CANCIONES` | `1` | Segundos de espera entre cada copia al clipboard |
-| `MAX_RESULTADOS_YT` | `3` | Resultados de YouTube a evaluar por canción |
-| `SCROLL_PAUSA` | `1.2` | Segundos de espera entre cada scroll |
-| `SCROLL_INTENTOS_MAX` | `5` | Intentos sin nuevas canciones antes de detenerse |
-| `HEADLESS` | `True` | `False` = ver el navegador en pantalla (útil para debug) |
-
----
-
-## Util en conjunto con otras aplicaciones que descargan canciones desde YouTube
-
-Eg: MediaHuma YouTube Dowloader
-
-1. Abre **MediaHuman YouTube Downloader** antes de ejecutar el script.
-2. Activa la opción **"Detectar enlaces del portapapeles"** en las preferencias.
-3. Ejecuta el script. Cada enlace se copiará automáticamente y MediaHuman lo añadirá a la cola de descarga.
-
-Alternativamente si prefieres esperar a que terminen de extraerse todas las canciones, simplemente puedes arrastrar el archivo `.txt` directamente a la ventana de MediaHuman. O utilizar los urls en otras apps.
+Tests: `python -m pytest`
 
 ---
 
@@ -144,34 +115,22 @@ Alternativamente si prefieres esperar a que terminen de extraerse todas las canc
 
 | Error | Causa | Solución |
 |---|---|---|
-| Solo obtiene ~100 canciones | El scroll no terminó de cargar | Aumenta `SCROLL_INTENTOS_MAX` o pon `HEADLESS = False` para ver qué ocurre |
-| `No se encontraron canciones` | Spotify cambió su estructura | Pon `HEADLESS = False` y verifica que la playlist carga |
-| `pyperclip could not find a copy/paste mechanism` | Falta `xclip` en Linux | `sudo apt install xclip` |
-| Canción no encontrada en YouTube | Sin match de búsqueda | El resumen final lista las canciones fallidas |
+| «No se encontraron canciones» | Playlist privada o Spotify cambió su web | Activa *Mostrar el navegador* en Ajustes, o pega la lista como texto |
+| Faltan canciones al final | El scroll paró antes de tiempo | Sube *Pausa de scroll* o *Vueltas sin cambios* en Ajustes |
+| Muchas «sin match» o errores de YouTube | yt-dlp desactualizado o límite de peticiones | `pip install -U yt-dlp` y reintenta las fallidas |
 | `playwright._impl._errors.Error` | Chromium no instalado | `python -m playwright install chromium` |
-
----
-
-## Debug: ver el navegador en pantalla
-
-Si el script no encuentra canciones o se queda corto, cambia en el script:
-
-```python
-HEADLESS = False
-```
-
-Así verás exactamente qué hace Playwright en la página de Spotify y podrás identificar el problema.
+| `pyperclip could not find a copy/paste mechanism` (CLI, Linux) | Falta `xclip` | `sudo apt install xclip` |
 
 ---
 
 ## Limitaciones
 
-- Solo funciona con playlists **públicas** de Spotify.
-- El match con YouTube es automático; en casos raros puede no ser la versión exacta.
-- Depende del formato actual de `open.spotify.com/embed` — si Spotify cambia su estructura, el script puede requerir ajustes.
+- Solo playlists y álbumes **públicos** de Spotify. Para lo demás, usa la *Lista de texto*.
+- La elección del vídeo es automática. Revisa las *dudosas* y corrige a mano si hace falta.
+- Depende de la web actual de `open.spotify.com`. Si Spotify la cambia, los selectores de `spotyurl/spotify.py` pueden necesitar ajustes.
 
 ---
 
 ## Licencia
 
-MIT — úsalo, modifícalo y compártelo libremente.
+MIT. Úsalo, modifícalo y compártelo libremente.

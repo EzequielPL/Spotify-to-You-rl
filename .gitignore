@@ -1,3 +1,9 @@
 /canciones_extraidas.txt
 /Spoty_to_you-rl
-/youtube_links_20260610_233405.txt
+/.venv
+/youtube_links_*.txt
+/*.csv
+/*.m3u
+__pycache__/
+.pytest_cache/
+*.egg-info/
