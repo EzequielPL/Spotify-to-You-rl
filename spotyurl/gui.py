@@ -19,7 +19,7 @@ from PySide6.QtCore import (
     QAbstractTableModel, QModelIndex, QSettings, QSortFilterProxyModel, Qt,
     QThread, QUrl, Signal,
 )
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QGuiApplication, QKeySequence
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QGuiApplication, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QButtonGroup, QCheckBox, QComboBox,
     QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout,
@@ -35,6 +35,7 @@ from .spotify import ScrapeConfig, SpotifyError, fetch_tracks, parse_source, par
 
 CARPETA_PROYECTO = Path(__file__).resolve().parent.parent
 CACHE_PATH = app_data_dir() / "search_cache.json"
+ICON_PATH = Path(__file__).resolve().parent / "assets" / "icon.svg"
 RE_YOUTUBE = re.compile(r"(?:youtube\.com/(?:watch\?(?:.*&)?v=|shorts/)|youtu\.be/)([\w-]{11})")
 
 COLOR_ESTADO = {
@@ -520,7 +521,12 @@ class MainWindow(QMainWindow):
         btn_ajustes = QPushButton("⚙  Ajustes", objectName="ghost")
         btn_ajustes.clicked.connect(self._abrir_ajustes)
 
+        logo = QLabel()
+        logo.setPixmap(QIcon(str(ICON_PATH)).pixmap(44, 44))
+
         h = QHBoxLayout()
+        h.setSpacing(12)
+        h.addWidget(logo)
         h.addLayout(col, 1)
         h.addWidget(self.btn_tema)
         h.addWidget(btn_ajustes)
@@ -911,9 +917,14 @@ class MainWindow(QMainWindow):
 
 
 def main() -> int:
+    if sys.platform == "win32":
+        # Sin esto, Windows agrupa la ventana bajo python.exe y muestra su icono en la barra de tareas
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("spotyurl.SpotifyToYourl")
     app = QApplication(sys.argv)
     app.setApplicationName("Spotify to You-rl")
     app.setApplicationVersion(__version__)
+    app.setWindowIcon(QIcon(str(ICON_PATH)))
     app.setStyle("Fusion")
     aplicar_tema(app, Ajustes()["theme"])
     win = MainWindow()
