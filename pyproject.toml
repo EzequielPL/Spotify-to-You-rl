@@ -12,6 +12,7 @@ dependencies = [
     "pyside6-essentials>=6.8",
 ]
 
+
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 

@@ -1,4 +1,4 @@
-"""Tests sin red del núcleo: parseo de entradas, puntuación y exportación."""
+"""Tests sin red del núcleo de spotify: parseo de entradas, puntuación y exportación."""
 
 from spotyurl.export import to_csv, to_m3u, to_txt
 from spotyurl.models import Status, Track, fmt_duration, parse_duration
