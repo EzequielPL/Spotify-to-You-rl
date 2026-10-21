@@ -116,6 +116,16 @@ _JS_LEER_FILAS = r"""
 })
 """
 
+_JS_NOMBRE = r"""
+() => {
+    const meta = document.querySelector('meta[property="og:title"]');
+    const h1 = document.querySelector('[data-testid="entityTitle"] h1')
+            || document.querySelector('main h1');
+    const nombre = (meta && meta.getAttribute('content')) || (h1 && h1.innerText) || '';
+    return nombre.trim();
+}
+"""
+
 _JS_CONTENEDOR_SCROLL = r"""
 (sel) => {
     const fila = document.querySelector(sel);
@@ -145,11 +155,13 @@ def fetch_tracks(
     cfg: ScrapeConfig | None = None,
     on_track: Callable[[Track], None] | None = None,
     on_log: Callable[[str], None] | None = None,
+    on_name: Callable[[str], None] | None = None,
     cancel: threading.Event | None = None,
 ) -> list[Track]:
     """
     Abre la playlist/álbum, hace scroll progresivo (la lista está virtualizada)
-    y devuelve las canciones en orden. on_track se llama con cada canción nueva.
+    y devuelve las canciones en orden. on_track se llama con cada canción nueva;
+    on_name, con el nombre de la playlist/álbum si se puede leer de la página.
     Lanza SpotifyError si no se encuentran filas.
     """
     from playwright.sync_api import TimeoutError as PWTimeout, sync_playwright
@@ -192,6 +204,16 @@ def fetch_tracks(
                     "Prueba con el navegador visible (Ajustes) o pega la lista como texto."
                 )
             log(f"Selector activo: {selector}")
+
+            # Nombre de la playlist/álbum (opcional: nunca rompe la extracción)
+            try:
+                nombre = (page.evaluate(_JS_NOMBRE) or "").strip()
+            except Exception:
+                nombre = ""
+            if nombre:
+                log(f"Nombre: {nombre}")
+                if on_name:
+                    on_name(nombre)
 
             # Rechazar cookies no esenciales si aparece el banner (no bloquea el scroll)
             try:

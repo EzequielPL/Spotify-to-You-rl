@@ -4,7 +4,8 @@ Interfaz gráfica (PySide6).
     python -m spotyurl.gui
 
 Todo el trabajo pesado (Playwright + yt-dlp) corre en un único QThread que
-habla con la UI mediante señales; la UI nunca toca Playwright.
+habla con la UI mediante señales; la UI nunca toca Playwright. La descarga de
+audio usa otro QThread (DownloadWorker) con las mismas señales.
 """
 
 
@@ -17,7 +18,7 @@ from pathlib import Path
 from string import Template
 
 from PySide6.QtCore import (
-    QAbstractTableModel, QModelIndex, QSettings, QSortFilterProxyModel, Qt,
+    QAbstractTableModel, QModelIndex, QSettings, QSortFilterProxyModel, QStandardPaths, Qt,
     QThread, QUrl, Signal,
 )
 from PySide6.QtGui import QAction, QColor, QDesktopServices, QGuiApplication, QIcon, QKeySequence
@@ -25,13 +26,13 @@ from PySide6.QtWidgets import (
     QAbstractItemView, QApplication, QButtonGroup, QCheckBox, QComboBox,
     QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout,
     QFrame, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QMainWindow, QMenu,
-    QAbstractSpinBox, QMessageBox, QPlainTextEdit, QProgressBar, QPushButton, QSizePolicy, QSpinBox,
+    QAbstractSpinBox, QInputDialog, QMessageBox, QPlainTextEdit, QProgressBar, QPushButton, QSizePolicy, QSpinBox,
     QStackedWidget, QTableView, QToolButton, QVBoxLayout, QWidget,
 )
 
 from . import __version__
-from .export import FORMATOS, default_name, export, to_txt
-from .models import Status, Track, app_data_dir, fmt_duration
+from .export import FORMATOS, default_name, export, to_txt, unique_path
+from .models import Status, Track, app_data_dir, fmt_duration, music_dir, safe_filename
 from .spotify import ScrapeConfig, SpotifyError, fetch_tracks, parse_source, parse_text_list
 
 CARPETA_PROYECTO = Path(__file__).resolve().parent.parent
@@ -62,6 +63,8 @@ DEFAULTS = {
     "use_cache": True,
     "auto_save": True,
     "out_dir": str(CARPETA_PROYECTO),
+    # Música del sistema (Windows y macOS); Qt respeta la carpeta si está redirigida (OneDrive)
+    "audio_dir": QStandardPaths.writableLocation(QStandardPaths.MusicLocation) or str(music_dir()),
     "theme": "dark",
 }
 
@@ -221,6 +224,7 @@ class Worker(QThread):
     log = Signal(str)
     copy_request = Signal(str)
     failed = Signal(str)
+    name_found = Signal(str)   # nombre de la playlist/álbum
 
     def __init__(self, opts: dict, url: str | None = None,
                  items: list[tuple[int, Track]] | None = None, use_cache: bool = True):
@@ -252,6 +256,7 @@ class Worker(QThread):
             on_track=lambda t: self.track_added.emit(dataclasses.replace(t)),
             on_log=self.log.emit,
             cancel=self.cancel,
+            on_name=self.name_found.emit,
         )
         self.tracks_reset.emit([dataclasses.replace(t) for t in tracks])
         self.items = list(enumerate(tracks))
@@ -291,6 +296,32 @@ class Worker(QThread):
             matcher.save_cache()
 
 
+class DownloadWorker(Worker):
+    """Descarga el audio de las canciones con enlace. Reutiliza las señales y el
+    `cancel` de Worker, pero no extrae ni busca nada."""
+
+    def __init__(self, opts: dict, tracks: list[Track], folder: Path):
+        super().__init__(opts)
+        self.tracks, self.folder = tracks, folder
+        self.result = None   # DownloadResult al terminar (None si hubo error)
+
+    def run(self):
+        from .download import download_tracks
+
+        try:
+            # La barra cuenta solo las canciones con enlace (las que se descargan)
+            self.phase.emit("Descargando audio…", sum(bool(t.youtube_url) for t in self.tracks))
+            self.result = download_tracks(
+                self.tracks, self.folder,
+                on_progress=lambda k, _n: self.progress.emit(k),
+                on_log=self.log.emit,
+                cancel=self.cancel,
+            )
+        except Exception as e:
+            self.log.emit(traceback.format_exc())
+            self.failed.emit(f"Error al descargar: {e}")
+
+
 # ── Tema ─────────────────────────────────────────────────────────────────────
 
 PALETAS = {
@@ -303,14 +334,14 @@ PALETAS = {
 }
 
 QSS = Template("""
-* { font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif; font-size: 10pt; }
+* { font-family: $font; font-size: 13px; }
 QMainWindow, QDialog, QWidget#root { background: $bg; }
 QWidget { color: $text; }
 QToolTip { background: $card; color: $text; border: 1px solid $border; padding: 6px; }
 QFrame#card { background: $card; border: 1px solid $border; border-radius: 12px; }
-QLabel#title { font-size: 17pt; font-weight: 600; }
+QLabel#title { font-size: 22px; font-weight: 600; }
 QLabel#subtitle, QLabel#muted { color: $muted; }
-QLabel#empty { color: $muted; font-size: 11pt; }
+QLabel#empty { color: $muted; font-size: 15px; }
 QLabel#chip { background: $input; border-radius: 11px; padding: 3px 11px; }
 
 QLineEdit, QPlainTextEdit, QComboBox, QSpinBox, QDoubleSpinBox {
@@ -371,8 +402,17 @@ QMenu::separator { height: 1px; background: $border; margin: 4px 8px; }
 """)
 
 
+# Fuente del sistema en cada plataforma (tamaños en px para que se vean igual en Windows y macOS)
+if sys.platform == "win32":
+    FUENTE = '"Segoe UI Variable Text", "Segoe UI", sans-serif'
+elif sys.platform == "darwin":
+    FUENTE = '".AppleSystemUIFont", "Helvetica Neue", sans-serif'
+else:
+    FUENTE = "sans-serif"
+
+
 def aplicar_tema(app: QApplication, tema: str):
-    app.setStyleSheet(QSS.substitute(PALETAS.get(tema, PALETAS["dark"])))
+    app.setStyleSheet(QSS.substitute(PALETAS.get(tema, PALETAS["dark"]), font=FUENTE))
 
 
 def repolish(w: QWidget):
@@ -401,18 +441,16 @@ class DialogoAjustes(QDialog):
         self.auto_guardar = QCheckBox("Guardar .txt automáticamente al terminar")
         self.auto_guardar.setChecked(ajustes["auto_save"])
         self.carpeta = QLineEdit(ajustes["out_dir"])
-        examinar = QPushButton("Examinar…")
-        examinar.clicked.connect(self._elegir_carpeta)
-        fila_carpeta = QHBoxLayout()
-        fila_carpeta.addWidget(self.carpeta, 1)
-        fila_carpeta.addWidget(examinar)
+        self.carpeta_audio = QLineEdit(ajustes["audio_dir"])
+        self.carpeta_audio.setToolTip("Cada playlist se descarga en una subcarpeta con su nombre")
         vaciar = QPushButton("Vaciar caché de búsquedas")
         vaciar.clicked.connect(self._vaciar_cache)
 
         form = QFormLayout()
         form.setVerticalSpacing(10)
-        form.addRow("Carpeta de salida", fila_carpeta)
+        form.addRow("Carpeta de salida", self._fila_carpeta(self.carpeta, "Carpeta de salida"))
         form.addRow("", self.auto_guardar)
+        form.addRow("Carpeta de audio", self._fila_carpeta(self.carpeta_audio, "Carpeta de audio"))
         form.addRow("Búsqueda en YouTube", self.plantilla)
         form.addRow("Candidatos por canción", self.n_results)
         form.addRow("", self.usar_cache)
@@ -431,10 +469,18 @@ class DialogoAjustes(QDialog):
         lay.addSpacing(8)
         lay.addWidget(botones)
 
-    def _elegir_carpeta(self):
-        d = QFileDialog.getExistingDirectory(self, "Carpeta de salida", self.carpeta.text())
+    def _fila_carpeta(self, campo: QLineEdit, titulo: str) -> QHBoxLayout:
+        examinar = QPushButton("Examinar…")
+        examinar.clicked.connect(lambda: self._elegir_carpeta(campo, titulo))
+        fila = QHBoxLayout()
+        fila.addWidget(campo, 1)
+        fila.addWidget(examinar)
+        return fila
+
+    def _elegir_carpeta(self, campo: QLineEdit, titulo: str):
+        d = QFileDialog.getExistingDirectory(self, titulo, campo.text())
         if d:
-            self.carpeta.setText(d)
+            campo.setText(d)
 
     def _vaciar_cache(self):
         CACHE_PATH.unlink(missing_ok=True)
@@ -450,6 +496,7 @@ class DialogoAjustes(QDialog):
         a["use_cache"] = self.usar_cache.isChecked()
         a["auto_save"] = self.auto_guardar.isChecked()
         a["out_dir"] = self.carpeta.text().strip() or DEFAULTS["out_dir"]
+        a["audio_dir"] = self.carpeta_audio.text().strip() or DEFAULTS["audio_dir"]
         super().accept()
 
 
@@ -476,6 +523,7 @@ class MainWindow(QMainWindow):
         self.ajustes = Ajustes()
         self.worker: Worker | None = None
         self.ultimo_archivo: Path | None = None
+        self.nombre_lista = ""   # nombre de la playlist/álbum ("" en «Lista de texto»)
         self.setWindowTitle("Spotify to You-rl")
         self.resize(1120, 760)
         self.setMinimumSize(820, 560)
@@ -521,6 +569,10 @@ class MainWindow(QMainWindow):
         self._texto_tema()
         btn_ajustes = QPushButton("⚙  Ajustes", objectName="ghost")
         btn_ajustes.clicked.connect(self._abrir_ajustes)
+        # Cmd+, en macOS (en Windows no hay atajo estándar y no hace nada)
+        preferencias = QAction(self, shortcut=QKeySequence(QKeySequence.Preferences))
+        preferencias.triggered.connect(self._abrir_ajustes)
+        self.addAction(preferencias)
 
         logo = QLabel()
         logo.setPixmap(QIcon(str(ICON_PATH)).pixmap(44, 44))
@@ -647,7 +699,9 @@ class MainWindow(QMainWindow):
 
         copiar = QAction(self.tabla, shortcut=QKeySequence(QKeySequence.Copy), shortcutContext=Qt.WidgetShortcut)
         copiar.triggered.connect(self._copiar_seleccion)
-        borrar = QAction(self.tabla, shortcut=QKeySequence(QKeySequence.Delete), shortcutContext=Qt.WidgetShortcut)
+        borrar = QAction(self.tabla, shortcutContext=Qt.WidgetShortcut)
+        # En el teclado de Mac la tecla "delete" es Backspace
+        borrar.setShortcuts([QKeySequence(QKeySequence.Delete), QKeySequence(Qt.Key_Backspace)])
         borrar.triggered.connect(self._quitar_seleccion)
         self.tabla.addActions([copiar, borrar])
 
@@ -682,6 +736,9 @@ class MainWindow(QMainWindow):
         for ext, desc in FORMATOS.items():
             menu.addAction(desc, lambda e=ext: self._exportar(e))
         self.btn_exportar.setMenu(menu)
+        self.btn_descargar = QPushButton("⬇  Descargar audio")
+        self.btn_descargar.setToolTip("Descarga el audio de las canciones con enlace a una carpeta")
+        self.btn_descargar.clicked.connect(self._descargar)
         self.btn_log = QPushButton("Log", objectName="ghost", checkable=True)
         self.btn_log.toggled.connect(lambda v: self.log_view.setVisible(v))
 
@@ -693,6 +750,7 @@ class MainWindow(QMainWindow):
         h.addWidget(self.btn_reintentar)
         h.addWidget(self.btn_copiar)
         h.addWidget(self.btn_exportar)
+        h.addWidget(self.btn_descargar)
         return h
 
     # Estado de la UI ─────────────────────────────────────────────────────────
@@ -735,6 +793,7 @@ class MainWindow(QMainWindow):
         con_enlace = any(t.youtube_url for t in self.model.tracks)
         self.btn_copiar.setEnabled(con_enlace)
         self.btn_exportar.setEnabled(hay)
+        self.btn_descargar.setEnabled(con_enlace and not self.ocupado)
         self.btn_reintentar.setEnabled(not self.ocupado and c[Status.FAILED] + c[Status.PENDING] > 0
                                        and c[Status.PENDING] != len(self.model.tracks))
 
@@ -767,6 +826,7 @@ class MainWindow(QMainWindow):
         if not self.btn_convertir.isEnabled():
             return
         self.btn_archivo.setVisible(False)
+        self.nombre_lista = ""
         if self.modo == 0:
             self.model.set_tracks([])
             self._lanzar(Worker(self.ajustes.snapshot(), url=self.url.text().strip()))
@@ -791,6 +851,7 @@ class MainWindow(QMainWindow):
         w.log.connect(self._log)
         w.copy_request.connect(lambda url: QGuiApplication.clipboard().setText(url))
         w.failed.connect(self._on_error)
+        w.name_found.connect(self._on_nombre)
         w.finished.connect(lambda: self._on_fin(w, guardar))
         w.start()
         self._set_ocupado(True)
@@ -806,6 +867,11 @@ class MainWindow(QMainWindow):
         self.barra.setValue(k)
         self.lbl_fase.setText(f"{self._fase} {k}/{self._total}")
 
+    def _on_nombre(self, nombre: str):
+        self.nombre_lista = nombre.strip()
+        if self.nombre_lista:
+            self._log(f"Lista: {self.nombre_lista}")
+
     def _on_error(self, msg: str):
         self._log(msg)
         QMessageBox.warning(self, "No se pudo completar", msg)
@@ -815,21 +881,41 @@ class MainWindow(QMainWindow):
         self.worker = None
         w.deleteLater()
         self._set_ocupado(False)
+        if isinstance(w, DownloadWorker):
+            # Ni mensaje de conversión ni auto-guardado del .txt tras una descarga
+            self._fin_descarga(w, cancelado)
+            return
         tracks = self.model.tracks
         n_links = sum(bool(t.youtube_url) for t in tracks)
         estado = "Cancelado" if cancelado else "Listo"
-        self.lbl_fase.setText(f"{estado}: {n_links} de {len(tracks)} canciones con enlace")
+        titulo = f"«{self.nombre_lista}» · " if self.nombre_lista else ""
+        self.lbl_fase.setText(f"{estado}: {titulo}{n_links} de {len(tracks)} canciones con enlace")
         if guardar and n_links and w.opts["auto_save"] and not cancelado:
             carpeta = Path(self.ajustes["out_dir"])
             try:
                 carpeta.mkdir(parents=True, exist_ok=True)
-                self.ultimo_archivo = carpeta / default_name("txt")
+                # unique_path: no sobrescribir el .txt de una conversión anterior de la misma lista
+                self.ultimo_archivo = unique_path(carpeta / default_name("txt", self.nombre_lista))
                 to_txt(tracks, self.ultimo_archivo)
                 self._log(f"Guardado: {self.ultimo_archivo}")
                 self.lbl_fase.setText(self.lbl_fase.text() + f"  ·  {self.ultimo_archivo.name}")
                 self.btn_archivo.setVisible(True)
             except OSError as e:
                 self._log(f"No se pudo guardar el .txt: {e}")
+
+    def _fin_descarga(self, w: DownloadWorker, cancelado: bool):
+        r = w.result
+        if r is None:   # el error ya se avisó con la señal failed
+            self.lbl_fase.setText("La descarga no se pudo completar")
+            return
+        for t, motivo in r.failed:
+            self._log(f"No se pudo descargar «{t.label}»: {motivo}")
+        resumen = f"Descargadas {len(r.ok)} · ya existían {len(r.skipped)} · fallidas {len(r.failed)}"
+        self.lbl_fase.setText(f"Cancelado: {resumen}" if cancelado else resumen)
+        self._log(resumen)
+        # _mostrar_archivo abre ultimo_archivo.parent: apuntar a algo dentro de la carpeta
+        self.ultimo_archivo = w.folder / "_"
+        self.btn_archivo.setVisible(w.folder.is_dir())
 
     def _filas_seleccionadas(self) -> list[int]:
         return sorted({self.proxy.mapToSource(i).row() for i in self.tabla.selectionModel().selectedRows()})
@@ -880,8 +966,38 @@ class MainWindow(QMainWindow):
         QGuiApplication.clipboard().setText("\n".join(urls))
         self.lbl_fase.setText(f"{len(urls)} enlaces copiados al portapapeles")
 
+    def _descargar(self):
+        from .download import ffmpeg_disponible
+
+        # Copias de toda la lista (la numeración 01, 02… sigue la posición en la
+        # playlist); el hilo de descarga no comparte objetos con el modelo
+        tracks = [dataclasses.replace(t) for t in self.model.tracks]
+        n = sum(bool(t.youtube_url) for t in tracks)
+        if self.ocupado or not n:
+            return
+        salida = Path(self.ajustes["audio_dir"])
+        sin_ffmpeg = not ffmpeg_disponible()
+        aviso = (
+            "\n\nffmpeg no está instalado: el audio se guardará en .m4a/.webm.\n"
+            "Instálalo para obtener .mp3."
+        ) if sin_ffmpeg else ""
+        nombre, ok = QInputDialog.getText(
+            self, "Descargar audio",
+            f"Se descargarán {n} canciones en una carpeta nueva dentro de:\n{salida}\n"
+            f"(puedes cambiarla en Ajustes → Carpeta de audio){aviso}\n\nNombre de la carpeta:",
+            QLineEdit.Normal, self.nombre_lista or "Lista de canciones",
+        )
+        if not ok:
+            return
+        nombre = safe_filename(nombre)
+        if not nombre:
+            QMessageBox.warning(self, "Descargar audio", "El nombre de la carpeta no es válido.")
+            return
+        self.btn_archivo.setVisible(False)
+        self._lanzar(DownloadWorker(self.ajustes.snapshot(), tracks, salida / nombre), guardar=False)
+
     def _exportar(self, ext: str):
-        inicial = str(Path(self.ajustes["out_dir"]) / default_name(ext))
+        inicial = str(Path(self.ajustes["out_dir"]) / default_name(ext, self.nombre_lista))
         ruta, _ = QFileDialog.getSaveFileName(self, "Exportar", inicial, FORMATOS[ext])
         if not ruta:
             return

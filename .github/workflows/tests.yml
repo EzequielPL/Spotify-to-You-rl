@@ -1,0 +1,48 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+      - name: Tests
+        run: python -m pytest -v
+
+  # Extracción real con Playwright en macOS. Spotify puede bloquear las IPs
+  # de GitHub, así que un fallo aquí no rompe el build.
+  integracion-macos:
+    runs-on: macos-latest
+    continue-on-error: true
+    env:
+      QT_QPA_PLATFORM: offscreen
+      SPOTYURL_NETWORK: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Instalar dependencias y Chromium
+        run: |
+          python -m pip install -r requirements.txt pytest
+          python -m playwright install chromium
+      - name: Extraer un álbum real
+        run: python -m pytest -v tests/test_plataforma.py -k extraccion_real

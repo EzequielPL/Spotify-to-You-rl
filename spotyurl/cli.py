@@ -2,16 +2,62 @@
 
 import argparse
 import sys
+import threading
 import time
 from pathlib import Path
 
-from .export import default_name, to_txt
-from .models import Status, app_data_dir
+from .export import default_name, to_txt, unique_path
+from .models import Status, Track, app_data_dir, music_dir, safe_filename
 from .spotify import ScrapeConfig, SpotifyError, fetch_tracks, parse_source
 from .youtube import YouTubeMatcher
 
 CARPETA_PROYECTO = Path(__file__).resolve().parent.parent
 
+
+def _descargar(tracks: list[Track], carpeta: Path) -> None:
+    """Descarga el audio en `carpeta`. Ctrl+C cancela de forma limpia."""
+    from .download import download_tracks
+
+    n = sum(bool(t.youtube_url) for t in tracks)
+    if not n:
+        print("\nNo hay enlaces que descargar.")
+        return
+
+    print(f"\n{'─' * 60}\nDescargando {n} canciones en: {carpeta}")
+    cancel = threading.Event()
+    resultado = {}
+
+    def trabajo() -> None:
+        try:
+            # Lista completa: la numeración de los archivos es la posición en la playlist
+            resultado["r"] = download_tracks(tracks, carpeta, on_log=print, cancel=cancel)
+        except Exception as e:
+            resultado["error"] = e
+
+    # La descarga va en un hilo: así Ctrl+C solo activa `cancel` y se espera a que termine
+    hilo = threading.Thread(target=trabajo, daemon=True)
+    hilo.start()
+    while hilo.is_alive():
+        try:
+            hilo.join(0.3)
+        except KeyboardInterrupt:
+            if not cancel.is_set():
+                print("\nCancelando descarga (termina la canción en curso)…")
+                cancel.set()
+
+    if "error" in resultado:
+        print(f"\nError en la descarga: {resultado['error']}")
+        return
+    r = resultado.get("r")
+    if r is None:
+        return
+    print(f"\n{'─' * 60}\n  Descargadas    : {len(r.ok)}"
+          f"\n  Ya existentes  : {len(r.skipped)}\n  Fallidas       : {len(r.failed)}")
+    if r.failed:
+        print("\n  Fallidas:")
+        for t, motivo in r.failed:
+            print(f"    • {t.label}: {motivo}")
+    print("─" * 60)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -25,6 +71,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--pause", type=float, default=1.0, help="Segundos entre copias al portapapeles (1)")
     ap.add_argument("--show-browser", action="store_true", help="Mostrar el navegador (debug)")
     ap.add_argument("--no-cache", action="store_true", help="Ignorar la caché de búsquedas")
+    ap.add_argument("--download", action="store_true",
+                    help="Descargar también el audio en una carpeta con el nombre de la playlist")
+    ap.add_argument("--audio-dir", type=Path, default=music_dir(),
+                    help="Dónde crear la carpeta de audio (por defecto, Música)")
     args = ap.parse_args(argv)
 
     url = args.url or input("Pega la URL de la playlist de Spotify: ").strip()
@@ -32,8 +82,10 @@ def main(argv: list[str] | None = None) -> int:
         print("El enlace no es una playlist ni un álbum de Spotify.")
         return 1
 
+    nombres: list[str] = []
     try:
-        tracks = fetch_tracks(url, ScrapeConfig(headless=not args.show_browser), on_log=print)
+        tracks = fetch_tracks(url, ScrapeConfig(headless=not args.show_browser),
+                              on_log=print, on_name=nombres.append)
     except SpotifyError as e:
         print(f"\n{e}")
         return 1
@@ -46,7 +98,8 @@ def main(argv: list[str] | None = None) -> int:
         copiar = pyperclip.copy
 
     matcher = YouTubeMatcher(cache_path=app_data_dir() / "search_cache.json")
-    ruta = args.out / default_name()
+    nombre = nombres[-1] if nombres else ""
+    ruta = unique_path(args.out / default_name("txt", nombre))
     try:
         for i, t in enumerate(tracks, 1):
             print(f"[{i:>4}/{len(tracks)}] {t.label}")
@@ -88,6 +141,9 @@ def main(argv: list[str] | None = None) -> int:
             for t in lista:
                 print(f"    • {t.label}")
     print("─" * 60)
+
+    if args.download:
+        _descargar(tracks, args.audio_dir / (safe_filename(nombre) or "Lista de canciones"))
     return 0
 
 

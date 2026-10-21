@@ -4,7 +4,7 @@ import csv
 from datetime import datetime
 from pathlib import Path
 
-from .models import Track, fmt_duration
+from .models import Track, fmt_duration, safe_filename
 
 
 FORMATOS = {
@@ -14,8 +14,24 @@ FORMATOS = {
 }
 
 
-def default_name(ext: str = "txt") -> str:
+def default_name(ext: str = "txt", name: str = "") -> str:
+    """Nombre de la playlist saneado; si no hay, uno con la fecha actual."""
+    seguro = safe_filename(name)
+    if seguro:
+        return f"{seguro}.{ext}"
     return f"youtube_links_{datetime.now():%Y%m%d_%H%M%S}.{ext}"
+
+
+def unique_path(path: Path) -> Path:
+    """Si path ya existe, prueba "Nombre (2).txt", "Nombre (3).txt"… hasta uno libre."""
+    if not path.exists():
+        return path
+    n = 2
+    while True:
+        candidato = path.with_name(f"{path.stem} ({n}){path.suffix}")
+        if not candidato.exists():
+            return candidato
+        n += 1
 
 
 def to_txt(tracks: list[Track], path: Path) -> int:

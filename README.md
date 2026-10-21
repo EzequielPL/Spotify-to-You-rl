@@ -21,24 +21,40 @@ Lista de texto "Artista - Título" ─┤
         yt-dlp pide varios candidatos por canción y elige
         el mejor (duración, canal oficial, sin covers/live…)
                                  │
-         ┌───────────────┬───────┴─────────┬──────────────────┐
-         ▼               ▼                 ▼                  ▼
-   Tabla revisable   Portapapeles     youtube_links_FECHA.txt   Exportar .csv / .m3u
-   (editar, reintentar) (MediaHuman)
+         ┌───────────────┬───────┴─────────┬──────────────────┬──────────────────┐
+         ▼               ▼                 ▼                  ▼                  ▼
+   Tabla revisable   Portapapeles   <Nombre de la lista>.txt  Exportar       Descargar audio
+   (editar, reintentar) (MediaHuman)                     .csv / .m3u    (yt-dlp → .mp3)
 ```
 
 ---
 
 ## Instalación
 
-Requiere Python **3.10+** (probado con 3.14 en Windows).
+Requiere Python **3.10+**. Funciona en **Windows** (probado con 3.14) y **macOS** (Intel y Apple Silicon).
+
+### Windows
 
 ```bash
 pip install -r requirements.txt
 python -m playwright install chromium
 ```
 
+### macOS
+
+macOS no trae un Python actualizado: instálalo desde [python.org](https://www.python.org/downloads/macos/) o con Homebrew (`brew install python`). Después, en la carpeta del proyecto:
+
+```bash
+python3 -m venv Spoty_to_you-rl
+Spoty_to_you-rl/bin/python -m pip install -r requirements.txt
+Spoty_to_you-rl/bin/python -m playwright install chromium
+```
+
 > **Linux:** para el portapapeles de la CLI necesitas `xclip` o `xsel` (`sudo apt install xclip`).
+
+**ffmpeg (opcional):** solo hace falta para que *Descargar audio* guarde en `.mp3`. Sin él, el audio se guarda tal cual lo da YouTube (`.m4a` o `.webm`).
+- Windows: `winget install ffmpeg`
+- macOS: `brew install ffmpeg`
 
 ---
 
@@ -48,7 +64,11 @@ python -m playwright install chromium
 python -m spotyurl.gui
 ```
 
-En Windows también puedes hacer doble clic en **`abrir_app.bat`** (usa el entorno virtual `Spoty_to_you-rl/` si existe).
+O con doble clic (usan el entorno virtual `Spoty_to_you-rl/` si existe):
+- **Windows:** `abrir_app.bat`
+- **macOS:** `abrir_app.command`. La primera vez, macOS puede bloquearlo por venir de internet: haz **clic derecho → Abrir → Abrir**. Si dice que no tiene permisos, ejecuta una vez `chmod +x abrir_app.command`.
+
+En Mac, los atajos usan **Cmd** (Cmd+C copia los enlaces seleccionados, Cmd+, abre los Ajustes y la tecla de borrar quita filas).
 
 - **Enlace de Spotify**: pega una playlist o un álbum (`/playlist/…`, `/album/…`, `/intl-es/…`, `spotify:playlist:…`). El campo te indica si el enlace es válido.
 - **Lista de texto**: pega canciones con formato `Artista - Título`, una por línea. Sirve para playlists privadas o cuando Spotify cambia su web.
@@ -58,11 +78,15 @@ En Windows también puedes hacer doble clic en **`abrir_app.bat`** (usa el entor
   - Clic derecho: abrir, copiar, buscar a mano en YouTube, reintentar o quitar la fila.
   - Filtra por texto o por estado. Usa *Dudosas* para revisar las coincidencias inseguras.
 - **Reintentar fallidas**, **Copiar todo** y **Exportar** (`.txt`, `.csv`, `.m3u`).
+- El `.txt` de enlaces se guarda con el **nombre de la playlist o álbum** (p. ej. `Mi playlist.txt`; si ya existe, `Mi playlist (2).txt`). Con *Lista de texto* se usa un nombre con la fecha.
+- **⬇ Descargar audio**: descarga las canciones con enlace en `<carpeta de audio>/<Nombre de la playlist>/01 - Artista - Título.mp3`. La carpeta de audio es, por defecto, **Música** (`C:\Users\<tú>\Music` en Windows, `~/Music` en macOS) y se cambia en *Ajustes*. Antes te deja cambiar el nombre de la carpeta; las que ya existen se saltan. Requiere ffmpeg para `.mp3` (ver *Instalación*).
 - **Copiar cada enlace al portapapeles**, con una pausa configurable entre copias, para MediaHuman.
-- **Ajustes**: carpeta de salida, guardado automático del `.txt`, plantilla de búsqueda, número de candidatos, caché de búsquedas, parámetros de scroll y navegador visible (para depurar).
+- **Ajustes**: carpeta de salida (`.txt`), carpeta de audio (descargas), guardado automático del `.txt`, plantilla de búsqueda, número de candidatos, caché de búsquedas, parámetros de scroll y navegador visible (para depurar).
 - Tema claro u oscuro.
 
-La configuración se guarda automáticamente. La caché de búsquedas está en `%APPDATA%\spotyurl\`.
+La configuración se guarda automáticamente. La caché de búsquedas está en:
+- Windows: `%APPDATA%\spotyurl\`
+- macOS: `~/Library/Application Support/spotyurl/`
 
 ---
 
@@ -72,6 +96,8 @@ La configuración se guarda automáticamente. La caché de búsquedas está en `
 python spotify_to_yourl.py "https://open.spotify.com/playlist/ID"
 ```
 
+En macOS usa `python3` (o `Spoty_to_you-rl/bin/python`) en lugar de `python`.
+
 | Opción | Descripción |
 |---|---|
 | `-o, --out CARPETA` | Dónde guardar el `.txt` (por defecto, la carpeta del proyecto) |
@@ -79,8 +105,10 @@ python spotify_to_yourl.py "https://open.spotify.com/playlist/ID"
 | `--pause SEG` | Pausa entre copias al portapapeles (por defecto, 1) |
 | `--show-browser` | Muestra el navegador durante la extracción (depuración) |
 | `--no-cache` | Ignora la caché de búsquedas |
+| `--download` | Además, descarga el audio en `<carpeta de audio>/<Nombre de la playlist>/` (`.mp3` si hay ffmpeg) |
+| `--audio-dir CARPETA` | Dónde crear la carpeta de audio (por defecto, Música; si no existe, el Escritorio) |
 
-Si interrumpes con `Ctrl+C`, se guardan los enlaces obtenidos hasta ese momento.
+El `.txt` se nombra como la playlist o álbum. Si interrumpes con `Ctrl+C`, se guardan los enlaces obtenidos hasta ese momento.
 
 ---
 
@@ -92,6 +120,8 @@ Si interrumpes con `Ctrl+C`, se guardan los enlaces obtenidos hasta ese momento.
 
 Si prefieres esperar a que termine todo, arrastra el `.txt` a la ventana de MediaHuman.
 
+MediaHuman también existe para macOS, así que el flujo es el mismo.
+
 ---
 
 ## Estructura
@@ -102,13 +132,16 @@ spotyurl/
   spotify.py   extracción con Playwright + parseo de enlaces y listas de texto
   youtube.py   búsqueda con yt-dlp, puntuación de candidatos, caché
   export.py    .txt / .csv / .m3u
+  download.py  descarga de audio con yt-dlp (+ ffmpeg para .mp3)
   cli.py       línea de comandos
   gui.py       interfaz PySide6 (hilo de trabajo + tabla)
 spotify_to_yourl.py   punto de entrada de la CLI
-tests/                pytest (sin red)
+abrir_app.bat         lanzador para Windows
+abrir_app.command     lanzador para macOS
+tests/                pytest (sin red, salvo SPOTYURL_NETWORK=1)
 ```
 
-Tests: `python -m pytest`
+Tests: `python -m pytest`. GitHub Actions los ejecuta en Windows y macOS en cada push (`.github/workflows/tests.yml`).
 
 ---
 
