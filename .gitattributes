@@ -1,0 +1,5 @@
+# Los scripts de macOS/Linux deben tener finales de línea LF aunque se editen en Windows
+*.command text eol=lf
+*.sh      text eol=lf
+# Los .bat de Windows, CRLF
+*.bat     text eol=crlf
