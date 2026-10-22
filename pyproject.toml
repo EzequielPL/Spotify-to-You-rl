@@ -26,11 +26,12 @@ spotyurl-gui = "spotyurl.gui:main"
 requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["spotyurl"]
+[tool.setuptools.packages.find]
+include = ["spotyurl*"]
 
 [tool.setuptools.package-data]
 spotyurl = ["assets/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]

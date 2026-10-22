@@ -15,7 +15,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from .models import Track, safe_filename
+from .models import Track
+from .paths import safe_filename
 
 EXTENSIONES_AUDIO = {".mp3", ".m4a", ".webm", ".opus", ".ogg", ".aac", ".flac", ".wav"}
 ESPERAS_REINTENTO = (0, 5, 15, 45)

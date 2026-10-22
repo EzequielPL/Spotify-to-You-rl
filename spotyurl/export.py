@@ -4,7 +4,8 @@ import csv
 from datetime import datetime
 from pathlib import Path
 
-from .models import Track, fmt_duration, safe_filename
+from .models import Track, fmt_duration
+from .paths import safe_filename
 
 
 FORMATOS = {

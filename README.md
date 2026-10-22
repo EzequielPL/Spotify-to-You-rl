@@ -7,6 +7,21 @@ Aplicación de escritorio (y CLI) que extrae **todas** las canciones de una play
 
 ---
 
+## Inicio rápido (sin programar)
+
+1. **Descarga el proyecto**: en GitHub, botón verde **Code → Download ZIP**. Descomprime el `.zip` donde quieras (por ejemplo, en el Escritorio).
+2. **Instala** con doble clic (solo la primera vez; si lo repites, actualiza las dependencias):
+   - **Windows:** `instalar.bat`
+   - **macOS:** `instalar.command`. La primera vez macOS puede bloquearlo por venir de internet: haz **clic derecho → Abrir → Abrir**.
+
+   El instalador comprueba que tengas Python 3.10+ (si no, te dice cómo instalarlo), crea el entorno virtual `Spoty_to_you-rl/`, instala las dependencias y el navegador Chromium que usa Playwright, y te avisa si falta ffmpeg (opcional, solo para `.mp3`).
+3. **Abre la app** con doble clic en `abrir_app.bat` (Windows) o `abrir_app.command` (macOS).
+4. Pega el enlace de la playlist y pulsa *Convertir*. Los enlaces (`.txt`, `.csv`, `.m3u`) quedan en la carpeta **`enlaces/`** del proyecto y el audio descargado en tu carpeta **Música**.
+
+> **No muevas los lanzadores** (`instalar.*`, `abrir_app.*`) fuera de la carpeta del proyecto: buscan el entorno virtual a su lado. Si quieres abrir la app desde el Escritorio, crea un **acceso directo** (Windows: clic derecho → *Crear acceso directo*) o un **alias** (macOS: clic derecho → *Crear alias*) y mueve ese.
+
+---
+
 
 ## ¿Cómo funciona?
 
@@ -29,16 +44,21 @@ Lista de texto "Artista - Título" ─┤
 
 ---
 
-## Instalación
+## Instalación manual
+
+Si prefieres no usar `instalar.bat` / `instalar.command`, puedes hacer lo mismo a mano.
 
 Requiere Python **3.10+**. Funciona en **Windows** (probado con 3.14) y **macOS** (Intel y Apple Silicon).
 
 ### Windows
 
-```bash
-pip install -r requirements.txt
-python -m playwright install chromium
+```bat
+python -m venv Spoty_to_you-rl
+Spoty_to_you-rl\Scripts\python -m pip install -r requirements.txt
+Spoty_to_you-rl\Scripts\python -m playwright install chromium
 ```
+
+(O, sin entorno virtual: `pip install -r requirements.txt` y `python -m playwright install chromium`.)
 
 ### macOS
 
@@ -64,9 +84,9 @@ Spoty_to_you-rl/bin/python -m playwright install chromium
 python -m spotyurl.gui
 ```
 
-O con doble clic (usan el entorno virtual `Spoty_to_you-rl/` si existe):
+O con doble clic (usan el entorno virtual `Spoty_to_you-rl/`; si no existe, te piden ejecutar antes el instalador):
 - **Windows:** `abrir_app.bat`
-- **macOS:** `abrir_app.command`. La primera vez, macOS puede bloquearlo por venir de internet: haz **clic derecho → Abrir → Abrir**. Si dice que no tiene permisos, ejecuta una vez `chmod +x abrir_app.command`.
+- **macOS:** `abrir_app.command`. La primera vez, macOS puede bloquearlo por venir de internet: haz **clic derecho → Abrir → Abrir**. Si dice que no tiene permisos, ejecuta una vez `chmod +x abrir_app.command instalar.command`.
 
 En Mac, los atajos usan **Cmd** (Cmd+C copia los enlaces seleccionados, Cmd+, abre los Ajustes y la tecla de borrar quita filas).
 
@@ -78,10 +98,10 @@ En Mac, los atajos usan **Cmd** (Cmd+C copia los enlaces seleccionados, Cmd+, ab
   - Clic derecho: abrir, copiar, buscar a mano en YouTube, reintentar o quitar la fila.
   - Filtra por texto o por estado. Usa *Dudosas* para revisar las coincidencias inseguras.
 - **Reintentar fallidas**, **Copiar todo** y **Exportar** (`.txt`, `.csv`, `.m3u`).
-- El `.txt` de enlaces se guarda con el **nombre de la playlist o álbum** (p. ej. `Mi playlist.txt`; si ya existe, `Mi playlist (2).txt`). Con *Lista de texto* se usa un nombre con la fecha.
-- **⬇ Descargar audio**: descarga las canciones con enlace en `<carpeta de audio>/<Nombre de la playlist>/01 - Artista - Título.mp3`. La carpeta de audio es, por defecto, **Música** (`C:\Users\<tú>\Music` en Windows, `~/Music` en macOS) y se cambia en *Ajustes*. Antes te deja cambiar el nombre de la carpeta; las que ya existen se saltan. Requiere ffmpeg para `.mp3` (ver *Instalación*).
+- El `.txt` de enlaces se guarda en la carpeta **`enlaces/`** del proyecto (se cambia en *Ajustes*) con el **nombre de la playlist o álbum** (p. ej. `Mi playlist.txt`; si ya existe, `Mi playlist (2).txt`). Con *Lista de texto* se usa un nombre con la fecha.
+- **⬇ Descargar audio**: descarga las canciones con enlace en `<carpeta de audio>/<Nombre de la playlist>/01 - Artista - Título.mp3`. La carpeta de audio es, por defecto, **Música** (`C:\Users\<tú>\Music` en Windows, `~/Music` en macOS) y se cambia en *Ajustes*. Antes te deja cambiar el nombre de la carpeta; las que ya existen se saltan. Requiere ffmpeg para `.mp3` (ver *Instalación manual*).
 - **Copiar cada enlace al portapapeles**, con una pausa configurable entre copias, para MediaHuman.
-- **Ajustes**: carpeta de salida (`.txt`), carpeta de audio (descargas), guardado automático del `.txt`, plantilla de búsqueda, número de candidatos, caché de búsquedas, parámetros de scroll y navegador visible (para depurar).
+- **Ajustes**: carpeta de salida (`.txt`/`.csv`/`.m3u`; por defecto `enlaces/`), carpeta de audio (descargas), guardado automático del `.txt`, plantilla de búsqueda, número de candidatos, caché de búsquedas, parámetros de scroll y navegador visible (para depurar).
 - Tema claro u oscuro.
 
 La configuración se guarda automáticamente. La caché de búsquedas está en:
@@ -94,13 +114,15 @@ La configuración se guarda automáticamente. La caché de búsquedas está en:
 
 ```bash
 python spotify_to_yourl.py "https://open.spotify.com/playlist/ID"
+# o, equivalente:
+python -m spotyurl "https://open.spotify.com/playlist/ID"
 ```
 
-En macOS usa `python3` (o `Spoty_to_you-rl/bin/python`) en lugar de `python`.
+En Windows usa `Spoty_to_you-rl\Scripts\python` y en macOS `Spoty_to_you-rl/bin/python` (o `python3`) en lugar de `python`, para usar el entorno virtual que crea el instalador.
 
 | Opción | Descripción |
 |---|---|
-| `-o, --out CARPETA` | Dónde guardar el `.txt` (por defecto, la carpeta del proyecto) |
+| `-o, --out CARPETA` | Dónde guardar el `.txt` (por defecto, `enlaces/` dentro del proyecto) |
 | `--no-clipboard` | No copiar cada enlace al portapapeles |
 | `--pause SEG` | Pausa entre copias al portapapeles (por defecto, 1) |
 | `--show-browser` | Muestra el navegador durante la extracción (depuración) |
@@ -127,18 +149,37 @@ MediaHuman también existe para macOS, así que el flujo es el mismo.
 ## Estructura
 
 ```
-spotyurl/
-  models.py    Track, Status, utilidades de duración
-  spotify.py   extracción con Playwright + parseo de enlaces y listas de texto
-  youtube.py   búsqueda con yt-dlp, puntuación de candidatos, caché
-  export.py    .txt / .csv / .m3u
-  download.py  descarga de audio con yt-dlp (+ ffmpeg para .mp3)
-  cli.py       línea de comandos
-  gui.py       interfaz PySide6 (hilo de trabajo + tabla)
-spotify_to_yourl.py   punto de entrada de la CLI
-abrir_app.bat         lanzador para Windows
-abrir_app.command     lanzador para macOS
+instalar.bat          instalador para Windows (venv + dependencias + Chromium)
+instalar.command      instalador para macOS
+abrir_app.bat         lanzador de la interfaz para Windows
+abrir_app.command     lanzador de la interfaz para macOS
+spotify_to_yourl.py   punto de entrada de la CLI (igual que python -m spotyurl)
+requirements.txt      dependencias
+pyproject.toml        metadatos del paquete y configuración de pytest
+enlaces/              aquí se guardan los .txt / .csv / .m3u (no se suben a git)
+Spoty_to_you-rl/      entorno virtual (lo crea el instalador; no se sube a git)
 tests/                pytest (sin red, salvo SPOTYURL_NETWORK=1)
+spotyurl/
+  __main__.py   python -m spotyurl → CLI
+  paths.py      rutas, nombres de archivo y carpeta enlaces/
+  models.py     Track, Status, utilidades de duración
+  spotify.py    extracción con Playwright + parseo de enlaces y listas de texto
+  youtube.py    búsqueda con yt-dlp, puntuación de candidatos, caché
+  export.py     .txt / .csv / .m3u
+  download.py   descarga de audio con yt-dlp (+ ffmpeg para .mp3)
+  cli.py        línea de comandos
+  assets/
+    icon.svg    icono de la app
+  gui/          interfaz PySide6 (python -m spotyurl.gui)
+    __main__.py          python -m spotyurl.gui
+    app.py               punto de entrada de la interfaz
+    ventana.py           ventana principal
+    dialogo_ajustes.py   diálogo de Ajustes
+    workers.py           hilos de trabajo (extracción, búsqueda, descarga)
+    modelo.py            modelo de la tabla de canciones y su filtro
+    tema.py              tema claro / oscuro
+    ajustes.py           ajustes persistentes (QSettings)
+    constantes.py        constantes compartidas
 ```
 
 Tests: `python -m pytest`. GitHub Actions los ejecuta en Windows y macOS en cada push (`.github/workflows/tests.yml`).

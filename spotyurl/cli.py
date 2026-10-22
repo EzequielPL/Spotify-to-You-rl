@@ -7,11 +7,10 @@ import time
 from pathlib import Path
 
 from .export import default_name, to_txt, unique_path
-from .models import Status, Track, app_data_dir, music_dir, safe_filename
+from .models import Status, Track
+from .paths import CARPETA_ENLACES, cache_path, music_dir, safe_filename
 from .spotify import ScrapeConfig, SpotifyError, fetch_tracks, parse_source
 from .youtube import YouTubeMatcher
-
-CARPETA_PROYECTO = Path(__file__).resolve().parent.parent
 
 
 def _descargar(tracks: list[Track], carpeta: Path) -> None:
@@ -66,7 +65,8 @@ def main(argv: list[str] | None = None) -> int:
         description="Convierte una playlist o álbum público de Spotify en enlaces de YouTube.",
     )
     ap.add_argument("url", nargs="?", help="Enlace de playlist o álbum de Spotify")
-    ap.add_argument("-o", "--out", type=Path, default=CARPETA_PROYECTO, help="Carpeta del .txt de salida")
+    ap.add_argument("-o", "--out", type=Path, default=CARPETA_ENLACES,
+                    help="Carpeta del .txt de salida (por defecto, enlaces/ del proyecto)")
     ap.add_argument("--no-clipboard", action="store_true", help="No copiar cada enlace al portapapeles")
     ap.add_argument("--pause", type=float, default=1.0, help="Segundos entre copias al portapapeles (1)")
     ap.add_argument("--show-browser", action="store_true", help="Mostrar el navegador (debug)")
@@ -97,8 +97,9 @@ def main(argv: list[str] | None = None) -> int:
         import pyperclip
         copiar = pyperclip.copy
 
-    matcher = YouTubeMatcher(cache_path=app_data_dir() / "search_cache.json")
+    matcher = YouTubeMatcher(cache_path=cache_path())
     nombre = nombres[-1] if nombres else ""
+    args.out.mkdir(parents=True, exist_ok=True)
     ruta = unique_path(args.out / default_name("txt", nombre))
     try:
         for i, t in enumerate(tracks, 1):
