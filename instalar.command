@@ -61,7 +61,7 @@ echo "Actualizando pip…"
 
 echo
 echo "Instalando dependencias (requirements.txt)…"
-"$VPY" -m pip install -r requirements.txt ||
+"$VPY" -m pip install --upgrade -r requirements.txt ||
     fallo "No se pudieron instalar las dependencias. Revisa tu conexión a internet."
 
 echo
@@ -69,13 +69,13 @@ echo "Instalando Chromium para Playwright…"
 "$VPY" -m playwright install chromium ||
     fallo "No se pudo instalar Chromium (Playwright). Revisa tu conexión a internet."
 
-# --- 4. ffmpeg (opcional) ---
+# --- 4. ffmpeg (viene incluido con imageio-ffmpeg; se usa el del sistema si existe) ---
 echo
-if command -v ffmpeg >/dev/null 2>&1; then
-    echo "ffmpeg encontrado."
+if "$VPY" -c "from spotyurl.download import ffmpeg_disponible as f; raise SystemExit(not f())" >/dev/null 2>&1; then
+    echo "ffmpeg listo: el audio se puede guardar en .mp3 o .m4a."
 else
-    echo "[Aviso] ffmpeg no está instalado. Es opcional: solo hace falta para guardar el audio en .mp3."
-    echo "        Para instalarlo:  brew install ffmpeg"
+    echo "[Aviso] No se encontró ffmpeg: el audio se guardará en .m4a/.webm en vez de .mp3."
+    echo "        Vuelve a ejecutar instalar.command o instala ffmpeg:  brew install ffmpeg"
 fi
 
 echo

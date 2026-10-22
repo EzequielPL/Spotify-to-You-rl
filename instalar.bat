@@ -66,7 +66,7 @@ if errorlevel 1 (
 
 echo.
 echo Instalando dependencias ^(requirements.txt^)...
-"%VPY%" -m pip install -r "requirements.txt"
+"%VPY%" -m pip install --upgrade -r "requirements.txt"
 if errorlevel 1 (
     echo [ERROR] No se pudieron instalar las dependencias. Revisa tu conexion a internet.
     pause
@@ -82,14 +82,14 @@ if errorlevel 1 (
     exit /b 1
 )
 
-rem --- 4. ffmpeg (opcional) ---
+rem --- 4. ffmpeg (viene incluido con imageio-ffmpeg; se usa el del sistema si existe) ---
 echo.
-where ffmpeg >nul 2>&1
+"%VPY%" -c "from spotyurl.download import ffmpeg_disponible as f; raise SystemExit(not f())" >nul 2>&1
 if errorlevel 1 (
-    echo [Aviso] ffmpeg no esta instalado. Es opcional: solo hace falta para guardar el audio en .mp3.
-    echo         Para instalarlo:  winget install ffmpeg
+    echo [Aviso] No se encontro ffmpeg: el audio se guardara en .m4a/.webm en vez de .mp3.
+    echo         Vuelve a ejecutar instalar.bat o instala ffmpeg:  winget install ffmpeg
 ) else (
-    echo ffmpeg encontrado.
+    echo ffmpeg listo: el audio se puede guardar en .mp3 o .m4a.
 )
 
 echo.

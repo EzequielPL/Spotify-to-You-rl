@@ -2,8 +2,9 @@
 Descarga del audio de las canciones con yt-dlp.
 
 Cada canción con enlace de YouTube se guarda como "NN - Artista - Título" en la
-carpeta indicada. Con ffmpeg instalado se convierte a .mp3; sin él se guarda en
-el formato original (.m4a/.webm). Las que ya existen en la carpeta se saltan.
+carpeta indicada, en .mp3 o .m4a. ffmpeg viene incluido con imageio-ffmpeg
+(se usa el del sistema si existe); sin ninguno se guarda en el formato original
+(.m4a/.webm). Las que ya existen en la carpeta se saltan.
 """
 
 
@@ -21,6 +22,11 @@ from .paths import safe_filename
 EXTENSIONES_AUDIO = {".mp3", ".m4a", ".webm", ".opus", ".ogg", ".aac", ".flac", ".wav"}
 ESPERAS_REINTENTO = (0, 5, 15, 45)
 
+FORMATOS_AUDIO = {
+    "mp3": "MP3 (compatible con todo)",
+    "m4a": "M4A / AAC (sin recomprimir, algo mejor calidad)",
+}
+
 
 class DescargaCancelada(Exception):
     """Lanzada desde el progress_hook cuando el usuario cancela."""
@@ -33,8 +39,20 @@ class DownloadResult:
     failed: list[tuple[Track, str]] = field(default_factory=list)   # (track, motivo)
 
 
+def ffmpeg_path() -> str | None:
+    """ffmpeg del sistema o, si no hay, el que trae el paquete imageio-ffmpeg."""
+    sistema = shutil.which("ffmpeg")
+    if sistema:
+        return sistema
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except (ImportError, RuntimeError):
+        return None
+
+
 def ffmpeg_disponible() -> bool:
-    return shutil.which("ffmpeg") is not None
+    return ffmpeg_path() is not None
 
 
 def nombre_archivo(posicion: int, total: int, track: Track) -> str:
@@ -46,15 +64,16 @@ def nombre_archivo(posicion: int, total: int, track: Track) -> str:
     return safe_filename(f"{posicion:0{ancho}d} - {track.label}")
 
 
-def _existentes(folder: Path) -> set[str]:
-    """Stems de los archivos de audio ya presentes (sin glob: los títulos pueden llevar [ ])."""
+def _existentes(folder: Path) -> dict[str, set[str]]:
+    """stem -> extensiones de audio ya presentes (sin glob: los títulos pueden llevar [ ])."""
+    vistos: dict[str, set[str]] = {}
     try:
-        return {
-            p.stem for p in folder.iterdir()
-            if p.is_file() and p.suffix.lower() in EXTENSIONES_AUDIO
-        }
+        for p in folder.iterdir():
+            if p.is_file() and p.suffix.lower() in EXTENSIONES_AUDIO:
+                vistos.setdefault(p.stem, set()).add(p.suffix.lower())
     except OSError:
-        return set()
+        pass
+    return vistos
 
 
 def _mensaje_corto(error: Exception) -> str:
@@ -64,7 +83,19 @@ def _mensaje_corto(error: Exception) -> str:
     return texto or type(error).__name__
 
 
-def _opciones(folder: Path, stem: str, con_ffmpeg: bool, hook: Callable[[dict], None]) -> dict:
+def pista_error(motivo: str) -> str:
+    """Consejo para el usuario según el error de yt-dlp ("" si no hay ninguno)."""
+    if re.search(r"403|forbidden|sign in|not a bot|unavailable|nsig|signature", motivo, re.I):
+        return ("YouTube rechazó la descarga. Suele arreglarse actualizando yt-dlp: "
+                "vuelve a ejecutar instalar (o: python -m pip install -U \"yt-dlp[default]\").")
+    if re.search(r"ffmpeg|ffprobe", motivo, re.I):
+        return ("ffmpeg no funciona: vuelve a ejecutar instalar o instala ffmpeg "
+                "(winget install ffmpeg / brew install ffmpeg).")
+    return ""
+
+
+def _opciones(folder: Path, stem: str, ffmpeg: str | None, formato: str,
+              hook: Callable[[dict], None]) -> dict:
     opts = {
         "quiet": True,
         "no_warnings": True,
@@ -74,10 +105,12 @@ def _opciones(folder: Path, stem: str, con_ffmpeg: bool, hook: Callable[[dict], 
         "outtmpl": str(folder / stem).replace("%", "%%") + ".%(ext)s",
         "progress_hooks": [hook],
     }
-    if con_ffmpeg:
+    if ffmpeg:
+        opts["ffmpeg_location"] = ffmpeg
+        # Con m4a el audio AAC de YouTube se copia sin recomprimir
         opts["postprocessors"] = [{
             "key": "FFmpegExtractAudio",
-            "preferredcodec": "mp3",
+            "preferredcodec": formato,
             "preferredquality": "192",
         }]
     return opts
@@ -111,8 +144,11 @@ def download_tracks(
     on_progress: Callable[[int, int], None] | None = None,   # (hechas, total)
     on_log: Callable[[str], None] | None = None,
     cancel: threading.Event | None = None,
+    formato: str = "mp3",   # clave de FORMATOS_AUDIO
 ) -> DownloadResult:
     """Descarga el audio de las canciones con enlace. No relanza al cancelar."""
+    if formato not in FORMATOS_AUDIO:
+        raise ValueError(f"Formato de audio no soportado: {formato}")
     log = on_log or (lambda _msg: None)
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
@@ -124,10 +160,10 @@ def download_tracks(
     if not total:
         return result
 
-    con_ffmpeg = ffmpeg_disponible()
-    if not con_ffmpeg:
+    ffmpeg = ffmpeg_path() if ffmpeg_disponible() else None
+    if not ffmpeg:
         log("ffmpeg no encontrado: el audio se guardará en su formato original (.m4a/.webm). "
-            "Instala ffmpeg para obtener .mp3.")
+            "Vuelve a ejecutar instalar para obtener .mp3.")
 
     existentes = _existentes(folder)
 
@@ -140,12 +176,14 @@ def download_tracks(
             log("Descarga cancelada.")
             break
         stem = nombre_archivo(pos, len(tracks), track)
-        if stem in existentes:
+        ya = existentes.get(stem, set())
+        # Con ffmpeg solo cuenta el formato elegido (cambiar de formato vuelve a descargar)
+        if (f".{formato}" in ya) if ffmpeg else ya:
             result.skipped.append(track)
             log(f"[{hechas}/{total}] Ya existe: {stem}")
         else:
             try:
-                _descargar_una(track.youtube_url, _opciones(folder, stem, con_ffmpeg, hook), cancel)
+                _descargar_una(track.youtube_url, _opciones(folder, stem, ffmpeg, formato, hook), cancel)
             except Exception as e:
                 if isinstance(e, DescargaCancelada) or (cancel and cancel.is_set()):
                     log("Descarga cancelada.")
@@ -155,7 +193,7 @@ def download_tracks(
                 log(f"[{hechas}/{total}] Error: {track.label} — {motivo}")
             else:
                 result.ok.append(track)
-                existentes.add(stem)
+                existentes.setdefault(stem, set()).add(f".{formato}")
                 log(f"[{hechas}/{total}] Descargada: {stem}")
         if on_progress:
             on_progress(hechas, total)

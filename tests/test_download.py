@@ -114,3 +114,37 @@ def test_cancelacion_devuelve_lo_hecho(tmp_path, monkeypatch):
     res = download_tracks([_t("B"), _t("C"), _t("D")], tmp_path, cancel=cancel)
     assert [t.title for t in res.skipped] == ["B"]
     assert not res.ok and not res.failed
+
+
+def test_pista_error():
+    from spotyurl.download import pista_error
+    assert "yt-dlp" in pista_error("unable to download video data: HTTP Error 403: Forbidden")
+    assert "ffmpeg" in pista_error("ffprobe and ffmpeg not found")
+    assert pista_error("Video unavailable") and not pista_error("disco lleno")
+
+
+def test_formato_no_soportado(tmp_path):
+    with pytest.raises(ValueError):
+        download.download_tracks([Track("B", ["A"], youtube_url="https://youtu.be/aaaaaaaaaaa")], tmp_path, formato="wav")
+
+
+def test_opciones_segun_formato(tmp_path):
+    hook = lambda _d: None
+    sin = download._opciones(tmp_path, "x", None, "mp3", hook)
+    assert "postprocessors" not in sin and "ffmpeg_location" not in sin
+    con = download._opciones(tmp_path, "x", "/bin/ffmpeg", "m4a", hook)
+    assert con["ffmpeg_location"] == "/bin/ffmpeg"
+    assert con["postprocessors"][0]["preferredcodec"] == "m4a"
+
+
+def test_cambiar_de_formato_vuelve_a_descargar(tmp_path, monkeypatch):
+    # Con ffmpeg, un .m4a existente no cuenta si ahora se pide .mp3
+    (tmp_path / "01 - A - B.m4a").write_bytes(b"")
+    monkeypatch.setattr(download, "ffmpeg_disponible", lambda: True)
+    monkeypatch.setattr(download, "ffmpeg_path", lambda: "/bin/ffmpeg")
+    llamadas = []
+    monkeypatch.setattr(download, "_descargar_una", lambda url, opts, cancel: llamadas.append(opts))
+    t = Track("B", ["A"], youtube_url="https://youtu.be/aaaaaaaaaaa")
+    assert len(download.download_tracks([t], tmp_path, formato="m4a").skipped) == 1
+    r = download.download_tracks([t], tmp_path, formato="mp3")
+    assert len(r.ok) == 1 and llamadas[0]["postprocessors"][0]["preferredcodec"] == "mp3"

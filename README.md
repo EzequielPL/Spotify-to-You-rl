@@ -14,7 +14,7 @@ Aplicación de escritorio (y CLI) que extrae **todas** las canciones de una play
    - **Windows:** `instalar.bat`
    - **macOS:** `instalar.command`. La primera vez macOS puede bloquearlo por venir de internet: haz **clic derecho → Abrir → Abrir**.
 
-   El instalador comprueba que tengas Python 3.10+ (si no, te dice cómo instalarlo), crea el entorno virtual `Spoty_to_you-rl/`, instala las dependencias y el navegador Chromium que usa Playwright, y te avisa si falta ffmpeg (opcional, solo para `.mp3`).
+   El instalador comprueba que tengas Python 3.10+ (si no, te dice cómo instalarlo), crea el entorno virtual `Spoty_to_you-rl/`, instala las dependencias (incluido ffmpeg, para convertir a `.mp3`) y el navegador Chromium que usa Playwright. Vuelve a ejecutarlo de vez en cuando: actualiza yt-dlp, que YouTube obliga a renovar a menudo.
 3. **Abre la app** con doble clic en `abrir_app.bat` (Windows) o `abrir_app.command` (macOS).
 4. Pega el enlace de la playlist y pulsa *Convertir*. Los enlaces (`.txt`, `.csv`, `.m3u`) quedan en la carpeta **`enlaces/`** del proyecto y el audio descargado en tu carpeta **Música**.
 
@@ -72,9 +72,7 @@ Spoty_to_you-rl/bin/python -m playwright install chromium
 
 > **Linux:** para el portapapeles de la CLI necesitas `xclip` o `xsel` (`sudo apt install xclip`).
 
-**ffmpeg (opcional):** solo hace falta para que *Descargar audio* guarde en `.mp3`. Sin él, el audio se guarda tal cual lo da YouTube (`.m4a` o `.webm`).
-- Windows: `winget install ffmpeg`
-- macOS: `brew install ffmpeg`
+**ffmpeg:** no hay que instalarlo aparte. Viene con el paquete `imageio-ffmpeg` (en `requirements.txt`) y es el que convierte a `.mp3`/`.m4a`. Si tienes ffmpeg instalado en el sistema (`winget install ffmpeg` / `brew install ffmpeg`), se usa ese.
 
 ---
 
@@ -99,7 +97,7 @@ En Mac, los atajos usan **Cmd** (Cmd+C copia los enlaces seleccionados, Cmd+, ab
   - Filtra por texto o por estado. Usa *Dudosas* para revisar las coincidencias inseguras.
 - **Reintentar fallidas**, **Copiar todo** y **Exportar** (`.txt`, `.csv`, `.m3u`).
 - El `.txt` de enlaces se guarda en la carpeta **`enlaces/`** del proyecto (se cambia en *Ajustes*) con el **nombre de la playlist o álbum** (p. ej. `Mi playlist.txt`; si ya existe, `Mi playlist (2).txt`). Con *Lista de texto* se usa un nombre con la fecha.
-- **⬇ Descargar audio**: descarga las canciones con enlace en `<carpeta de audio>/<Nombre de la playlist>/01 - Artista - Título.mp3`. La carpeta de audio es, por defecto, **Música** (`C:\Users\<tú>\Music` en Windows, `~/Music` en macOS) y se cambia en *Ajustes*. Antes te deja cambiar el nombre de la carpeta; las que ya existen se saltan. Requiere ffmpeg para `.mp3` (ver *Instalación manual*).
+- **⬇ Descargar audio**: descarga las canciones con enlace en `<carpeta de audio>/<Nombre de la playlist>/01 - Artista - Título.mp3`. La carpeta de audio es, por defecto, **Música** (`C:\Users\<tú>\Music` en Windows, `~/Music` en macOS) y se cambia en *Ajustes*. Antes te deja cambiar el nombre de la carpeta y elegir el **formato**: `.mp3` (por defecto, compatible con todo) o `.m4a` (AAC, sin recomprimir). Se recuerda el último elegido. Las canciones que ya existen en ese formato se saltan.
 - **Copiar cada enlace al portapapeles**, con una pausa configurable entre copias, para MediaHuman.
 - **Ajustes**: carpeta de salida (`.txt`/`.csv`/`.m3u`; por defecto `enlaces/`), carpeta de audio (descargas), guardado automático del `.txt`, plantilla de búsqueda, número de candidatos, caché de búsquedas, parámetros de scroll y navegador visible (para depurar).
 - Tema claro u oscuro.
@@ -127,7 +125,8 @@ En Windows usa `Spoty_to_you-rl\Scripts\python` y en macOS `Spoty_to_you-rl/bin/
 | `--pause SEG` | Pausa entre copias al portapapeles (por defecto, 1) |
 | `--show-browser` | Muestra el navegador durante la extracción (depuración) |
 | `--no-cache` | Ignora la caché de búsquedas |
-| `--download` | Además, descarga el audio en `<carpeta de audio>/<Nombre de la playlist>/` (`.mp3` si hay ffmpeg) |
+| `--download` | Además, descarga el audio en `<carpeta de audio>/<Nombre de la playlist>/` |
+| `--format mp3\|m4a` | Formato del audio descargado (por defecto, `mp3`) |
 | `--audio-dir CARPETA` | Dónde crear la carpeta de audio (por defecto, Música; si no existe, el Escritorio) |
 
 El `.txt` se nombra como la playlist o álbum. Si interrumpes con `Ctrl+C`, se guardan los enlaces obtenidos hasta ese momento.
@@ -166,7 +165,7 @@ spotyurl/
   spotify.py    extracción con Playwright + parseo de enlaces y listas de texto
   youtube.py    búsqueda con yt-dlp, puntuación de candidatos, caché
   export.py     .txt / .csv / .m3u
-  download.py   descarga de audio con yt-dlp (+ ffmpeg para .mp3)
+  download.py   descarga de audio con yt-dlp (+ ffmpeg incluido para .mp3/.m4a)
   cli.py        línea de comandos
   assets/
     icon.svg    icono de la app
@@ -175,6 +174,7 @@ spotyurl/
     app.py               punto de entrada de la interfaz
     ventana.py           ventana principal
     dialogo_ajustes.py   diálogo de Ajustes
+    dialogo_descarga.py  diálogo de Descargar audio (carpeta y formato)
     workers.py           hilos de trabajo (extracción, búsqueda, descarga)
     modelo.py            modelo de la tabla de canciones y su filtro
     tema.py              tema claro / oscuro

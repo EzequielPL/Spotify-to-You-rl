@@ -118,6 +118,7 @@ class DownloadWorker(Worker):
                 on_progress=lambda k, _n: self.progress.emit(k),
                 on_log=self.log.emit,
                 cancel=self.cancel,
+                formato=self.opts["audio_format"],
             )
         except Exception as e:
             self.log.emit(traceback.format_exc())

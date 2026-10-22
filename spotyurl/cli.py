@@ -13,9 +13,9 @@ from .spotify import ScrapeConfig, SpotifyError, fetch_tracks, parse_source
 from .youtube import YouTubeMatcher
 
 
-def _descargar(tracks: list[Track], carpeta: Path) -> None:
+def _descargar(tracks: list[Track], carpeta: Path, formato: str = "mp3") -> None:
     """Descarga el audio en `carpeta`. Ctrl+C cancela de forma limpia."""
-    from .download import download_tracks
+    from .download import download_tracks, pista_error
 
     n = sum(bool(t.youtube_url) for t in tracks)
     if not n:
@@ -29,7 +29,7 @@ def _descargar(tracks: list[Track], carpeta: Path) -> None:
     def trabajo() -> None:
         try:
             # Lista completa: la numeración de los archivos es la posición en la playlist
-            resultado["r"] = download_tracks(tracks, carpeta, on_log=print, cancel=cancel)
+            resultado["r"] = download_tracks(tracks, carpeta, on_log=print, cancel=cancel, formato=formato)
         except Exception as e:
             resultado["error"] = e
 
@@ -56,6 +56,9 @@ def _descargar(tracks: list[Track], carpeta: Path) -> None:
         print("\n  Fallidas:")
         for t, motivo in r.failed:
             print(f"    • {t.label}: {motivo}")
+        pista = pista_error(r.failed[0][1])
+        if pista:
+            print(f"\n  {pista}")
     print("─" * 60)
 
 
@@ -75,6 +78,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="Descargar también el audio en una carpeta con el nombre de la playlist")
     ap.add_argument("--audio-dir", type=Path, default=music_dir(),
                     help="Dónde crear la carpeta de audio (por defecto, Música)")
+    ap.add_argument("--format", choices=["mp3", "m4a"], default="mp3", dest="audio_format",
+                    help="Formato del audio descargado (por defecto, mp3)")
     args = ap.parse_args(argv)
 
     url = args.url or input("Pega la URL de la playlist de Spotify: ").strip()
@@ -144,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     print("─" * 60)
 
     if args.download:
-        _descargar(tracks, args.audio_dir / (safe_filename(nombre) or "Lista de canciones"))
+        _descargar(tracks, args.audio_dir / (safe_filename(nombre) or "Lista de canciones"), args.audio_format)
     return 0
 
 

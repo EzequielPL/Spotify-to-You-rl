@@ -7,18 +7,18 @@ from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QAction, QDesktopServices, QGuiApplication, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QAbstractItemView, QAbstractSpinBox, QApplication, QButtonGroup, QCheckBox, QComboBox,
-    QDoubleSpinBox, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QInputDialog, QLabel,
+    QDoubleSpinBox, QFileDialog, QFrame, QHBoxLayout, QHeaderView, QLabel,
     QLineEdit, QMainWindow, QMenu, QMessageBox, QPlainTextEdit, QProgressBar, QPushButton,
     QSizePolicy, QStackedWidget, QTableView, QToolButton, QVBoxLayout, QWidget,
 )
 
 from ..export import FORMATOS, default_name, export, to_txt, unique_path
 from ..models import Status
-from ..paths import safe_filename
 from ..spotify import parse_source, parse_text_list
 from .ajustes import Ajustes
 from .constantes import COLOR_ESTADO, ICON_PATH
 from .dialogo_ajustes import DialogoAjustes
+from .dialogo_descarga import DialogoDescarga
 from .modelo import FiltroTracks, TrackTableModel
 from .tema import aplicar_tema, repolish
 from .workers import DownloadWorker, Worker
@@ -440,6 +440,17 @@ class MainWindow(QMainWindow):
         # _mostrar_archivo abre ultimo_archivo.parent: apuntar a algo dentro de la carpeta
         self.ultimo_archivo = w.folder / "_"
         self.btn_archivo.setVisible(w.folder.is_dir())
+        if r.failed and not r.ok and not cancelado:
+            # Si no se descargó nada, avisar en grande: en el log pasa desapercibido
+            from ..download import pista_error
+
+            t, motivo = r.failed[0]
+            pista = pista_error(motivo)
+            QMessageBox.warning(
+                self, "Descargar audio",
+                f"No se pudo descargar ninguna canción ({len(r.failed)} fallidas).\n\n"
+                f"Primer error («{t.label}»):\n{motivo}" + (f"\n\n{pista}" if pista else ""),
+            )
 
     def _filas_seleccionadas(self) -> list[int]:
         return sorted({self.proxy.mapToSource(i).row() for i in self.tabla.selectionModel().selectedRows()})
@@ -500,25 +511,13 @@ class MainWindow(QMainWindow):
         if self.ocupado or not n:
             return
         salida = Path(self.ajustes["audio_dir"])
-        sin_ffmpeg = not ffmpeg_disponible()
-        aviso = (
-            "\n\nffmpeg no está instalado: el audio se guardará en .m4a/.webm.\n"
-            "Instálalo para obtener .mp3."
-        ) if sin_ffmpeg else ""
-        nombre, ok = QInputDialog.getText(
-            self, "Descargar audio",
-            f"Se descargarán {n} canciones en una carpeta nueva dentro de:\n{salida}\n"
-            f"(puedes cambiarla en Ajustes → Carpeta de audio){aviso}\n\nNombre de la carpeta:",
-            QLineEdit.Normal, self.nombre_lista or "Lista de canciones",
-        )
-        if not ok:
+        dlg = DialogoDescarga(n, salida, self.nombre_lista or "Lista de canciones",
+                              self.ajustes["audio_format"], ffmpeg_disponible(), self)
+        if not dlg.exec():
             return
-        nombre = safe_filename(nombre)
-        if not nombre:
-            QMessageBox.warning(self, "Descargar audio", "El nombre de la carpeta no es válido.")
-            return
+        self.ajustes["audio_format"] = dlg.formato_elegido()
         self.btn_archivo.setVisible(False)
-        self._lanzar(DownloadWorker(self.ajustes.snapshot(), tracks, salida / nombre), guardar=False)
+        self._lanzar(DownloadWorker(self.ajustes.snapshot(), tracks, salida / dlg.carpeta()), guardar=False)
 
     def _exportar(self, ext: str):
         carpeta = Path(self.ajustes["out_dir"])

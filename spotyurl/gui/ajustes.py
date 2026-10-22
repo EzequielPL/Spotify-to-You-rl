@@ -20,6 +20,7 @@ DEFAULTS = {
     "out_dir": str(CARPETA_ENLACES),   # .txt/.csv/.m3u en enlaces/ del proyecto
     # Música del sistema (Windows y macOS); Qt respeta la carpeta si está redirigida (OneDrive)
     "audio_dir": QStandardPaths.writableLocation(QStandardPaths.MusicLocation) or str(music_dir()),
+    "audio_format": "mp3",   # clave de download.FORMATOS_AUDIO; se recuerda la última elegida
     "theme": "dark",
 }
 
