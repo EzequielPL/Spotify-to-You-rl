@@ -10,11 +10,10 @@ CACHE_PATH = cache_path()
 ICON_PATH = Path(__file__).resolve().parent.parent / "assets" / "icon.svg"
 RE_YOUTUBE = re.compile(r"(?:youtube\.com/(?:watch\?(?:.*&)?v=|shorts/)|youtu\.be/)([\w-]{11})")
 
-COLOR_ESTADO = {
-    Status.PENDING: "#8a8f98",
-    Status.SEARCHING: "#3b82f6",
-    Status.OK: "#1db954",
-    Status.DOUBTFUL: "#f5a524",
-    Status.FAILED: "#f04461",
-    Status.MANUAL: "#a970ff",
-}
+# Texto del estado en la interfaz (Status.FAILED vale "sin match" en el núcleo)
+ETIQUETA_ESTADO = {s: s.value for s in Status} | {Status.FAILED: "sin enlace"}
+
+
+def plural(n: int, singular: str, plural_: str | None = None) -> str:
+    """plural(1, "canción", "canciones") → "1 canción"; plural(3, …) → "3 canciones"."""
+    return f"{n} {singular if n == 1 else plural_ or singular + 's'}"

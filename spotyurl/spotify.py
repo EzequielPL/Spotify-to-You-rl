@@ -238,7 +238,8 @@ def fetch_tracks(
                         title=fila["title"],
                         artists=fila["artists"],
                         duration_s=parse_duration(fila["duration"]),
-                        album=fila["album"],
+                        # En los álbumes las filas no enlazan al álbum: se usa el nombre de la página
+                        album=fila["album"] or (nombre if source.kind == "album" else ""),
                         spotify_id=fila["id"],
                     )
                     vistos[clave] = track

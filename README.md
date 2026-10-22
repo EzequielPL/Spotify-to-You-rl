@@ -86,18 +86,29 @@ O con doble clic (usan el entorno virtual `Spoty_to_you-rl/`; si no existe, te p
 - **Windows:** `abrir_app.bat`
 - **macOS:** `abrir_app.command`. La primera vez, macOS puede bloquearlo por venir de internet: haz **clic derecho → Abrir → Abrir**. Si dice que no tiene permisos, ejecuta una vez `chmod +x abrir_app.command instalar.command`.
 
-En Mac, los atajos usan **Cmd** (Cmd+C copia los enlaces seleccionados, Cmd+, abre los Ajustes y la tecla de borrar quita filas).
+En Mac, los atajos usan **Cmd** (Cmd+C copia los enlaces seleccionados, Cmd+E elige otra versión, Cmd+, abre los Ajustes y la tecla de borrar quita filas).
 
 - **Enlace de Spotify**: pega una playlist o un álbum (`/playlist/…`, `/album/…`, `/intl-es/…`, `spotify:playlist:…`). El campo te indica si el enlace es válido.
 - **Lista de texto**: pega canciones con formato `Artista - Título`, una por línea. Sirve para playlists privadas o cuando Spotify cambia su web.
 - **Tabla**: las canciones aparecen en vivo mientras se extraen y cambian de estado:
   `pendiente → buscando → encontrada / dudosa / sin match / manual`.
+  - La columna **Vídeo encontrado** muestra el título del vídeo elegido, para ver de un vistazo si es la canción correcta.
+  - Haz clic en una cabecera para **ordenar** (por número, título, artista, duración, estado…).
   - Doble clic en el enlace para **pegar otro** a mano. Doble clic en el resto de la fila para abrir el vídeo.
-  - Clic derecho: abrir, copiar, buscar a mano en YouTube, reintentar o quitar la fila.
-  - Filtra por texto o por estado. Usa *Dudosas* para revisar las coincidencias inseguras.
-- **Reintentar fallidas**, **Copiar todo** y **Exportar** (`.txt`, `.csv`, `.m3u`).
+  - **Elegir otra versión…** (clic derecho o `Ctrl+E`): lista los vídeos candidatos con su canal, su duración comparada con la de Spotify (p. ej. «+0:05») y su puntuación; el actual va marcado con ●. *Escuchar* lo abre en el navegador y *Usar esta versión* (o doble clic) lo elige. Si no hay candidatos guardados, los busca sin bloquear la ventana.
+  - Clic derecho: abrir, copiar, buscar a mano en YouTube, **marcar como correcta** (una dudosa que en realidad está bien), reintentar la búsqueda, **descargar solo las seleccionadas** o quitar la fila.
+  - Tus correcciones (enlace pegado, versión elegida o «marcar como correcta») se **recuerdan**: si vuelves a convertir la misma lista, esas canciones salen como *manual* con tu elección (requiere la caché de búsquedas activada en *Ajustes*).
+  - Filtra por texto o por estado. Los contadores de arriba (*encontradas*, *dudosas*, *sin enlace*) también filtran al pulsarlos; otra pulsación vuelve a *Todas*.
+  - **Revisar dudosas** recorre las dudosas una a una con el diálogo de versiones (*Saltar* la deja como está, *Terminar revisión* para). Con el filtro *Dudosas* puesto, al corregir una se selecciona la siguiente.
+- **Reintentar fallidas**, **Copiar todo** y el menú **Archivo**: *Abrir .csv…*, *Exportar* (`.txt`, `.csv`, `.m3u`) y *⟳ Actualizar descarga…*.
+- **Abrir .csv** (menú *Archivo* o arrastrando el `.csv` a la ventana): carga el `.csv` que exporta esta app o el de [Exportify](https://exportify.net) (ver [Importar un .csv](#importar-un-csv-exportify)). Las canciones que ya traen enlace lo conservan; si no trae ninguno (Exportify), se buscan todas en YouTube automáticamente, como en una conversión. Si solo faltan algunas, pulsa **Reintentar fallidas** para buscarlas. El nombre de la lista es el del archivo.
+- **Recientes ▾** (arriba a la derecha): las últimas 10 listas convertidas desde un enlace o descargadas, con su fecha. Pulsar una vuelve a convertirla; las descargadas tienen además *⟳ Actualizar descarga* y *Abrir carpeta*. *Borrar recientes* vacía la lista.
+- **⟳ Actualizar descarga** (menú *Archivo* o *Recientes*): elige una carpeta ya descargada con la app y la [sincroniza](#sincronizar-una-carpeta-de-descargas) con su playlist sin más pasos: vuelve a leer la playlist de Spotify (el enlace está guardado en la carpeta), busca en YouTube **solo las canciones nuevas** y las descarga en esa carpeta con su formato; las que ya estaban se renumeran si han cambiado de posición. Antes pregunta si quieres mover a `Quitadas/` las canciones que ya no están en la lista. Como con el botón *Descargar audio*, las dudosas también se descargan; el resumen final dice cuántas hay para revisar. Si la carpeta no se descargó con la app (o no guarda el enlace), usa *Convertir* + *Descargar audio*.
 - El `.txt` de enlaces se guarda en la carpeta **`enlaces/`** del proyecto (se cambia en *Ajustes*) con el **nombre de la playlist o álbum** (p. ej. `Mi playlist.txt`; si ya existe, `Mi playlist (2).txt`). Con *Lista de texto* se usa un nombre con la fecha.
-- **⬇ Descargar audio**: descarga las canciones con enlace en `<carpeta de audio>/<Nombre de la playlist>/01 - Artista - Título.mp3`. La carpeta de audio es, por defecto, **Música** (`C:\Users\<tú>\Music` en Windows, `~/Music` en macOS) y se cambia en *Ajustes*. Antes te deja cambiar el nombre de la carpeta y elegir el **formato**: `.mp3` (por defecto, compatible con todo) o `.m4a` (AAC, sin recomprimir). Se recuerda el último elegido. Las canciones que ya existen en ese formato se saltan.
+- **⬇ Descargar audio**: descarga las canciones con enlace en `<carpeta de audio>/<Nombre de la playlist>/01 - Artista - Título.mp3`. La carpeta de audio es, por defecto, **Música** (`C:\Users\<tú>\Music` en Windows, `~/Music` en macOS) y se cambia en *Ajustes*. Antes te deja cambiar el nombre de la carpeta y elegir el **formato**: `.mp3` (por defecto, compatible con todo) o `.m4a` (AAC, sin recomprimir). Se recuerda el último elegido. Las canciones que ya están en la carpeta en ese formato no se vuelven a descargar, aunque la playlist haya cambiado de orden (ver [Sincronizar una carpeta](#sincronizar-una-carpeta-de-descargas)). Si la carpeta ya tiene canciones que no están en la lista actual, el diálogo ofrece **moverlas a `Quitadas/`**. Al terminar se resume: «Descargadas X · ya estaban Y · renumeradas Z · quitadas W · fallidas V», y en la carpeta queda la lista de reproducción `<Nombre>.m3u8`.
+  Cada archivo lleva sus **etiquetas**: título, artista(s), álbum, número de pista (posición en la playlist) y **carátula**. El álbum es el de Spotify; si la canción no lo trae, se usa el nombre de la playlist como álbum, con «Varios artistas» como artista del álbum (así la playlist aparece como un solo álbum en tu reproductor). La carátula es la de Spotify o, si no se puede obtener, la miniatura del vídeo de YouTube recortada a cuadrado.
+  Durante la descarga aparece la columna **Audio** con el estado de cada canción (*en cola*, *⬇ 45 %*, *convirtiendo…*, *etiquetando…*, *✓*, *ya existía* o *✗*; pasa el ratón por encima de ✗ para ver el motivo) y, bajo la entrada, la canción en curso y el tiempo estimado que queda («Descargando 3/40 · Artista – Título · quedan ~2 min»). La búsqueda en YouTube muestra igualmente la canción que se está buscando.
+- Mientras hay trabajo en curso, el botón **Cancelar** (o `Esc`) está junto a la barra de progreso. Al terminar una conversión o descarga con la ventana en segundo plano, la app te avisa (parpadea en la barra de tareas / rebota en el Dock).
 - **Copiar cada enlace al portapapeles**, con una pausa configurable entre copias, para MediaHuman.
 - **Ajustes**: carpeta de salida (`.txt`/`.csv`/`.m3u`; por defecto `enlaces/`), carpeta de audio (descargas), guardado automático del `.txt`, plantilla de búsqueda, número de candidatos, caché de búsquedas, parámetros de scroll y navegador visible (para depurar).
 - Tema claro u oscuro.
@@ -128,8 +139,40 @@ En Windows usa `Spoty_to_you-rl\Scripts\python` y en macOS `Spoty_to_you-rl/bin/
 | `--download` | Además, descarga el audio en `<carpeta de audio>/<Nombre de la playlist>/` |
 | `--format mp3\|m4a` | Formato del audio descargado (por defecto, `mp3`) |
 | `--audio-dir CARPETA` | Dónde crear la carpeta de audio (por defecto, Música; si no existe, el Escritorio) |
+| `--sync CARPETA` | Sincroniza una carpeta ya descargada con su playlist (usa el enlace y el formato guardados en ella): descarga solo las nuevas y renumera las demás. Implica `--download` |
+| `--move-removed` | Mueve a la subcarpeta `Quitadas/` las canciones que ya no están en la lista |
+| `--csv ARCHIVO` | Lee las canciones de un `.csv` (exportado por esta app o por [Exportify](https://exportify.net)) en vez de Spotify. Las que ya traen enlace no se buscan |
 
 El `.txt` se nombra como la playlist o álbum. Si interrumpes con `Ctrl+C`, se guardan los enlaces obtenidos hasta ese momento.
+
+Con `--download`, los `.mp3`/`.m4a` se guardan con título, artista, álbum (el de Spotify o, si falta, el nombre de la playlist), número de pista y carátula. Al terminar se resume cuántas son nuevas, ya existían, se renumeraron, se quitaron o fallaron.
+
+```bash
+# Descargar una playlist y, semanas después, traer solo lo nuevo
+python -m spotyurl "https://open.spotify.com/playlist/ID" --download --no-clipboard
+python -m spotyurl --sync ~/Music/"Mi playlist" --move-removed --no-clipboard
+
+# Desde un .csv de Exportify (o de Archivo → Exportar · .csv de esta app)
+python -m spotyurl --csv "Mi playlist.csv" --download
+```
+
+### Sincronizar una carpeta de descargas
+
+Cada carpeta de descargas guarda un manifiesto oculto, **`.spotyurl.json`**, con el enlace de Spotify de la lista, el formato y, por cada canción (identificada por su id de Spotify), su archivo y el vídeo de YouTube con el que se descargó (y si lo elegiste a mano). Gracias a él, volver a descargar la misma playlist es una **sincronización**:
+
+- **Solo se descarga lo nuevo.** Las canciones que ya están en la carpeta no se vuelven a descargar aunque la playlist haya cambiado de orden, se hayan quitado filas o se hayan añadido canciones. Tampoco se vuelven a buscar en YouTube: se reutiliza el enlace guardado.
+- **Renumeración.** Si una canción cambia de posición, su archivo se renombra al número nuevo (`03 - …` pasa a `01 - …`) y se actualiza su número de pista. Los intercambios (la 01 pasa a 02 y la 02 a 01) se hacen sin pisar archivos.
+- **Quitadas.** Las canciones que ya no están en la playlist se avisan y se dejan donde están; con `--move-removed` se mueven a la subcarpeta **`Quitadas/`**.
+- **Carpetas antiguas** (descargadas antes de que existiera el manifiesto): los archivos `NN - Artista - Título` se reconocen por su nombre y se adoptan, renumerándolos si hace falta.
+- Si cancelas, lo ya descargado queda registrado.
+
+Además, en cada descarga se escribe **`<Nombre de la lista>.m3u8`** dentro de la carpeta: una lista de reproducción (UTF-8, rutas relativas) con las canciones descargadas en el orden de la playlist. Ábrela con VLC, foobar2000, Música/iTunes, etc.
+
+### Importar un `.csv` (Exportify)
+
+`--csv` (y *Archivo → Abrir .csv…* en la interfaz) acepta dos formatos (se detectan por las cabeceras; separador `,` o `;`, con o sin BOM):
+- El `.csv` que exporta esta app: conserva enlaces, estados y puntuaciones, así que solo se buscan las que no tienen enlace.
+- El de **[Exportify](https://exportify.net)** (columnas `Track Name`, `Artist Name(s)`, `Album Name`, `Duration (ms)`, `Track URI`): útil para playlists privadas o si la web de Spotify cambia. El nombre de la lista es el del archivo.
 
 ---
 
@@ -163,9 +206,11 @@ spotyurl/
   paths.py      rutas, nombres de archivo y carpeta enlaces/
   models.py     Track, Status, utilidades de duración
   spotify.py    extracción con Playwright + parseo de enlaces y listas de texto
-  youtube.py    búsqueda con yt-dlp, puntuación de candidatos, caché
-  export.py     .txt / .csv / .m3u
-  download.py   descarga de audio con yt-dlp (+ ffmpeg incluido para .mp3/.m4a)
+  youtube.py    búsqueda con yt-dlp, puntuación de candidatos, caché (y elecciones manuales)
+  export.py     .txt / .csv / .m3u e importación de .csv (propio y de Exportify)
+  download.py   descarga de audio con yt-dlp (+ ffmpeg para .mp3/.m4a), etiquetas/carátula (mutagen),
+                sincronización (renumerar, quitadas) y lista local .m3u8
+  manifiesto.py manifiesto .spotyurl.json de cada carpeta de descargas
   cli.py        línea de comandos
   assets/
     icon.svg    icono de la app

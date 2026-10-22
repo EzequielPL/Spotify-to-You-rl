@@ -1,5 +1,6 @@
 yt-dlp[default]>=2026.8.19
 imageio-ffmpeg>=0.6
+mutagen>=1.47
 playwright>=1.60
 pyperclip>=1.11
 pyside6-essentials>=6.8

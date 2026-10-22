@@ -24,6 +24,8 @@ class Track:
     youtube_title: str = ""
     score: float | None = None
     status: Status = Status.PENDING
+    # Candidatos de YouTube (youtube.Candidate) ordenados de mejor a peor
+    candidates: list = field(default_factory=list, repr=False, compare=False)
 
     @property
     def artist(self) -> str:
